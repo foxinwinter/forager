@@ -15,14 +15,14 @@ from forager.ui.icons import load_icon as load_bundled_icon
 _SIDEBAR_W = 240
 
 _SOURCE_ICONS = {
-    Source.STEAM: "gamepad",
+    Source.STEAM: "playstation-gamepad",
     Source.MINECRAFT: "cube",
     Source.STANDALONE: "box",
 }
 
 
 def source_icon(src: Source, size=16) -> QIcon:
-    return load_bundled_icon(_SOURCE_ICONS.get(src, "gamepad"), C.TEXT_MUTED)
+    return load_bundled_icon(_SOURCE_ICONS.get(src, "playstation-gamepad"), C.TEXT_MUTED)
 
 
 class Sidebar(QWidget):
