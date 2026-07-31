@@ -48,11 +48,12 @@ class Game:
 
     @property
     def display_path(self) -> str:
-        """Path shown in the UI: ``games/<folder-with-game>`` when under the
-        games directory, else the absolute path."""
+        """Path shown in the UI: relative to the games directory starting at
+        the holder folder (e.g. ``drm-free/series/…``), else the absolute
+        path."""
         try:
             rel = self.path.resolve().relative_to(games_dir())
-            return "games/" + "/".join(rel.parts)
+            return "/".join(rel.parts)
         except ValueError:
             return str(self.path)
 
