@@ -1,7 +1,7 @@
 from __future__ import annotations
 import queue
 import threading
-from PySide6.QtCore import Qt, Signal, QThread
+from PySide6.QtCore import Qt, QSize, Signal, QThread
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QLineEdit,
     QPushButton, QCheckBox, QStackedWidget, QButtonGroup, QFileDialog,
@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 from forager.core.config import settings
 from forager.library import proton
 from forager.ui.theme import C
+from forager.ui.icons import load_icon as load_bundled_icon
 
 DISPLAY_SIZES = [
     ("small", "Small", 120, 180),
@@ -121,6 +122,14 @@ class SettingsDialog(QDialog):
             f"QPushButton:hover {{ background-color: {C.COLOR_3}; }}"
             f"QPushButton:default {{ background-color: {C.ACCENT_1}; color: {C.BG}; border: none; }}"
         )
+        buttons.button(QDialogButtonBox.StandardButton.Save).setIcon(
+            load_bundled_icon("floppy-disk", C.BG)
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setIcon(
+            load_bundled_icon("xmark", "#ff5f57")
+        )
+        for sb in (QDialogButtonBox.StandardButton.Save, QDialogButtonBox.StandardButton.Cancel):
+            buttons.button(sb).setIconSize(QSize(14, 14))
         buttons.accepted.connect(self._save)
         buttons.rejected.connect(self.reject)
         v.addWidget(buttons)

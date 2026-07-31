@@ -9,8 +9,10 @@ from PySide6.QtWidgets import (
 from forager.core.game import Game
 from forager.services import art
 from forager.ui.theme import C
+from forager.ui.icons import load_icon as load_bundled_icon
 
-_BANNER_H = 420
+_BANNER_MIN_H = 240
+_BANNER_MAX_H = 520
 
 
 class _Banner(QWidget):
@@ -18,12 +20,24 @@ class _Banner(QWidget):
         super().__init__(parent)
         self._source: QPixmap | None = None
         self._overlay: QWidget | None = None
-        self.setMinimumHeight(_BANNER_H)
-        self.setMaximumHeight(480)
+        self._ratio = 2.0
+        self.setMinimumHeight(_BANNER_MIN_H)
+        self.setMaximumHeight(_BANNER_MAX_H)
 
     def set_source(self, pix: QPixmap | None):
         self._source = pix
+        if pix is not None and not pix.isNull():
+            self._ratio = pix.height() / pix.width()
+        self._fit_height()
         self.update()
+
+    def _fit_height(self):
+        if self._source is None or self.width() <= 0:
+            return
+        h = int(round(self.width() * self._ratio))
+        h = max(_BANNER_MIN_H, min(_BANNER_MAX_H, h))
+        if h != self.height():
+            self.setFixedHeight(h)
 
     def set_overlay(self, overlay: QWidget):
         self._overlay = overlay
@@ -32,6 +46,7 @@ class _Banner(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        self._fit_height()
         if self._overlay is not None:
             self._overlay.setGeometry(self.rect())
 
@@ -86,21 +101,34 @@ class GamePage(QWidget):
         info_row = QHBoxLayout()
         info_row.setSpacing(12)
 
-        self._play_btn = QPushButton("  Play")
+        self._play_btn = QPushButton()
         self._play_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._play_btn.setFixedHeight(48)
         self._play_btn.setMinimumWidth(220)
         self._play_btn.setStyleSheet(
             f"""
             QPushButton {{
-                background-color: {C.GREEN}; color: #ffffff; border: none;
-                border-radius: {C.RADIUS}px; font-size: 17px; font-weight: 600;
-                padding: 0 24px;
+                background-color: {C.GREEN}; border: none;
+                border-radius: {C.RADIUS}px;
             }}
             QPushButton:hover {{ background-color: {C.GREEN_HOVER}; }}
-            QPushButton:disabled {{ background-color: {C.COLOR_3}; color: {C.TEXT_DIM}; }}
+            QPushButton:disabled {{ background-color: {C.COLOR_3}; }}
             """
         )
+        play_lay = QHBoxLayout(self._play_btn)
+        play_lay.setContentsMargins(20, 0, 16, 0)
+        play_lay.setSpacing(5)
+        play_icon = QLabel()
+        play_icon.setPixmap(load_bundled_icon("play", "#ffffff").pixmap(20, 20))
+        play_icon.setStyleSheet("background: transparent;")
+        play_lay.addWidget(play_icon)
+        play_text = QLabel("Play")
+        play_text.setStyleSheet(
+            f"background: transparent; color: #ffffff;"
+            f"font-size: 17px; font-weight: 600;"
+        )
+        play_lay.addWidget(play_text)
+        play_lay.addStretch(1)
         self._play_btn.clicked.connect(self._on_play)
         info_row.addWidget(self._play_btn)
 
@@ -162,21 +190,6 @@ class GamePage(QWidget):
         self._logo_label.setMaximumWidth(520)
         self._logo_label.setMinimumHeight(90)
         lay.addWidget(self._logo_label)
-
-        self._play_overlay_btn = QPushButton("Play")
-        self._play_overlay_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._play_overlay_btn.setFixedSize(180, 44)
-        self._play_overlay_btn.setStyleSheet(
-            f"""
-            QPushButton {{
-                background-color: {C.GREEN}; color: #ffffff; border: none;
-                border-radius: {C.RADIUS}px; font-size: 16px; font-weight: 600;
-            }}
-            QPushButton:hover {{ background-color: {C.GREEN_HOVER}; }}
-            """
-        )
-        self._play_overlay_btn.clicked.connect(self._on_play)
-        lay.addWidget(self._play_overlay_btn)
 
         return overlay
 

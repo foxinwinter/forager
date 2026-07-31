@@ -173,8 +173,6 @@ class MainWindow(QMainWindow):
 
         self._sidebar.game_selected.connect(self._open_game)
         self._sidebar.search_changed.connect(self._on_search_changed)
-        self._sidebar.update_proton_requested.connect(self._update_proton)
-        self._sidebar.token_set.connect(lambda: self._status_show("SGDB token saved"))
         self._gamepage.play.connect(self._launch_game)
         self._gamepage.back_requested.connect(self._show_home)
 
@@ -216,12 +214,6 @@ class MainWindow(QMainWindow):
         self._forward_btn.setEnabled(False)
         lay.addWidget(self._back_btn)
         lay.addWidget(self._forward_btn)
-
-        lay.addStretch(1)
-
-        self._title_label = QLabel("Library")
-        self._title_label.setStyleSheet(f"color: {C.TEXT_DIM}; font-size: 13px; background: transparent;")
-        lay.addWidget(self._title_label)
 
         lay.addStretch(1)
 
@@ -333,7 +325,6 @@ class MainWindow(QMainWindow):
     def _finish_loading(self):
         self._sidebar.set_games(self._games)
         self._rebuild_cards()
-        self._title_label.setText("Library")
         self._start_art_worker()
 
     def _start_art_worker(self):
@@ -446,13 +437,11 @@ class MainWindow(QMainWindow):
 
     def _show_home(self):
         self._content.setCurrentWidget(self._home)
-        self._title_label.setText("Library")
         self._back_btn.setEnabled(False)
 
     def _open_game(self, game: Game):
         self._gamepage.set_game(game)
         self._content.setCurrentWidget(self._gamepage)
-        self._title_label.setText(game.name.replace("/", " / "))
         self._back_btn.setEnabled(True)
         self._load_hero_async(game)
 

@@ -2,9 +2,8 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QPushButton,
+    QWidget, QVBoxLayout, QLabel,
     QLineEdit, QListWidget, QListWidgetItem, QFrame,
-    QInputDialog, QMessageBox,
 )
 
 from forager.core.game import Game
@@ -18,8 +17,6 @@ _SIDEBAR_W = 240
 class Sidebar(QWidget):
     game_selected = Signal(object)
     search_changed = Signal(str)
-    update_proton_requested = Signal()
-    token_set = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -109,56 +106,7 @@ class Sidebar(QWidget):
         self._count_label.setStyleSheet(f"color: {C.TEXT_MUTED}; font-size: 12px;")
         panel_layout.addWidget(self._count_label)
 
-        update_btn = QPushButton("Update Proton")
-        update_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        update_btn.setStyleSheet(
-            f"""
-            QPushButton {{
-                background-color: {C.COLOR_1}; color: {C.TEXT}; border: none;
-                border-radius: {C.RADIUS}px; padding: 7px 10px; font-size: 12px;
-                font-weight: 600; text-align: center;
-            }}
-            QPushButton:hover {{ background-color: {C.COLOR_4}; color: {C.ACCENT_2}; }}
-            QPushButton:disabled {{ color: {C.TEXT_DIM}; }}
-            """
-        )
-        update_btn.clicked.connect(self.update_proton_requested)
-        panel_layout.addWidget(update_btn)
-
-        token_btn = QPushButton("SGDB Token")
-        token_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        token_btn.setStyleSheet(
-            f"""
-            QPushButton {{
-                background-color: {C.COLOR_1}; color: {C.TEXT}; border: none;
-                border-radius: {C.RADIUS}px; padding: 7px 10px; font-size: 12px;
-                font-weight: 600; text-align: center;
-            }}
-            QPushButton:hover {{ background-color: {C.COLOR_4}; color: {C.ACCENT_2}; }}
-            """
-        )
-        token_btn.clicked.connect(self._set_token)
-        panel_layout.addWidget(token_btn)
-
         layout.addWidget(panel)
-
-    def _set_token(self):
-        from forager.library.steamgriddb import get_api_key, set_api_key
-
-        current = get_api_key() or ""
-        text, ok = QInputDialog.getText(
-            self, "SteamGridDB Token",
-            "Enter your SteamGridDB API token\n(kept in the system keyring, not stored in plaintext):",
-            QLineEdit.EchoMode.Password, current,
-        )
-        if not ok or not text.strip():
-            return
-        try:
-            set_api_key(text.strip())
-        except Exception as e:
-            QMessageBox.warning(self, "Token Error", f"Could not save token:\n{e}")
-            return
-        self.token_set.emit()
 
     def set_games(self, games: list[Game]):
         self._games = sorted(games, key=lambda g: (g.sort_key or g.name).lower())
