@@ -62,7 +62,21 @@ class GameCard(QWidget):
             p.setPen(QPen(QColor(255, 255, 255, 45), 1))
             p.drawRoundedRect(rect, _RADIUS, _RADIUS)
 
+    def _fallback_art(self) -> QPixmap | None:
+        size = (self.width(), self.height())
+        if getattr(self, "_fallback", None) is None or self._fallback_size != size:
+            self._fallback = art.placeholder_grid(self.game, size[0], size[1])
+            self._fallback_size = size
+        return self._fallback
+
     def _paint_placeholder(self, p: QPainter, w: int, h: int):
+        pix = self._fallback_art()
+        if pix is not None and not pix.isNull():
+            p.drawPixmap(self.rect(), pix)
+            return
+        self._paint_simple_placeholder(p, w, h)
+
+    def _paint_simple_placeholder(self, p: QPainter, w: int, h: int):
         icon = art.load_icon(self.game, allow_network=False)
         if icon is not None:
             side = max(36, w // 3)
