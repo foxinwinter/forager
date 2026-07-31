@@ -75,23 +75,26 @@ class _Banner(QWidget):
         return path
 
     def _paint_steam_style(self, p: QPainter):
-        """Show the artwork sharp and whole, filled in like Steam does:
+        """Fill the banner like Steam does:
 
-        - Images too small or too big for the banner area keep their sharp
-          appearance (scaled down to fit, never upscaled, never cropped).
-        - Whatever space is left is covered by a blurred, stretched copy of
-          the artwork (Steam's ``library_hero_blur``/side-blur backdrop).
+        - Images smaller than the banner area are upscaled to cover it
+          (Steam stretches small heroes across the banner).
+        - Images large enough are scaled down to fit sharp and whole; the
+          leftover space is covered by a blurred, stretched copy of the
+          artwork (Steam's side-blur backdrop).
         """
         w, h = self.width(), self.height()
         src = self._source
 
-        fitted = src
-        if src.width() > w or src.height() > h:
-            fitted = src.scaled(
-                w, h,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
+        if src.width() < w or src.height() < h:
+            p.drawPixmap(0, 0, art.scale_crop(src, w, h))
+            return
+
+        fitted = src.scaled(
+            w, h,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
 
         if fitted.width() < w or fitted.height() < h:
             p.drawPixmap(0, 0, self._backdrop(src))
