@@ -76,8 +76,11 @@ def _download(url: str) -> bytes | None:
         return None
 
 
-def _asset_bytes(kind: str, sgdb_id: int) -> bytes | None:
-    data = _api_get(f"/{kind}/game/{sgdb_id}")
+def _asset_bytes(kind: str, sgdb_id: int, dimensions: str | None = None) -> bytes | None:
+    path = f"/{kind}/game/{sgdb_id}"
+    if dimensions:
+        path += f"?dimensions={urllib.parse.quote(dimensions)}"
+    data = _api_get(path)
     if not data or not data.get("success") or not data.get("data"):
         return None
     best = _pick_best_grid(data["data"]) if kind == "grids" else _pick_best(data["data"])
@@ -89,6 +92,14 @@ def _asset_bytes(kind: str, sgdb_id: int) -> bytes | None:
     thumb_url = best.get("thumb")
     if thumb_url:
         return _download(thumb_url)
+    return None
+
+
+def _asset_banner_bytes(sgdb_id: int) -> bytes | None:
+    for dims in ("920x430", "460x215"):
+        raw = _asset_bytes("grids", sgdb_id, dimensions=dims)
+        if raw:
+            return raw
     return None
 
 
@@ -117,6 +128,14 @@ def fetch_header_for_steam(app_id: str) -> QPixmap | None:
     return _to_qpixmap(data) if data else None
 
 
+def fetch_banner_bytes_for_steam(app_id: str) -> bytes | None:
+    game_data = _api_get(f"/games/steam/{app_id}")
+    if not game_data or not game_data.get("success"):
+        return None
+    sgdb_id = game_data["data"]["id"]
+    return _asset_banner_bytes(sgdb_id)
+
+
 def fetch_header_bytes_for_steam(app_id: str) -> bytes | None:
     game_data = _api_get(f"/games/steam/{app_id}")
     if not game_data or not game_data.get("success"):
@@ -138,23 +157,23 @@ def _match_entry(results: list[dict], query: str, match_term: str) -> dict | Non
     return None
 
 
-def _search_fetch(kind: str, query: str, match_term: str) -> bytes | None:
+def _search_fetch(kind: str, query: str, match_term: str, dimensions: str | None = None) -> bytes | None:
     results = _api_get(f"/search/autocomplete/{urllib.parse.quote(query)}")
     if not results or not results.get("success") or not results.get("data"):
         return None
     entry = _match_entry(results["data"], query, match_term)
     if entry is None:
         return None
-    return _asset_bytes(kind, entry["id"])
+    return _asset_bytes(kind, entry["id"], dimensions=dimensions)
 
 
-def _asset_for_game_bytes(kind: str, game) -> bytes | None:
+def _asset_for_game_bytes(kind: str, game, dimensions: str | None = None) -> bytes | None:
     plan = game.sgdb_search
     if not plan:
         return None
     queries, match_term = plan
     for q in queries:
-        raw = _search_fetch(kind, q, match_term)
+        raw = _search_fetch(kind, q, match_term, dimensions=dimensions)
         if raw:
             return raw
     return None
@@ -166,6 +185,19 @@ def fetch_grid_bytes_for_game(game) -> bytes | None:
 
 def fetch_header_bytes_for_game(game) -> bytes | None:
     return _asset_for_game_bytes("headers", game)
+
+
+def fetch_banner_bytes_for_game(game) -> bytes | None:
+    plan = game.sgdb_search
+    if not plan:
+        return None
+    queries, match_term = plan
+    for q in queries:
+        for dims in ("920x430", "460x215"):
+            raw = _search_fetch("grids", q, match_term, dimensions=dims)
+            if raw:
+                return raw
+    return None
 
 
 def fetch_icon_bytes_for_game(game) -> bytes | None:

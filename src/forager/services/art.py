@@ -8,14 +8,17 @@ from PySide6.QtGui import QPixmap, QImage, QPainter, QColor, QFont, QFontMetrics
 from forager.core.game import Game, Source
 from forager.library.steamgriddb import (
     fetch_header_bytes_for_steam,
+    fetch_banner_bytes_for_steam,
     fetch_grid_bytes_for_steam, fetch_grid_bytes_for_game,
     fetch_header_bytes_for_game,
+    fetch_banner_bytes_for_game,
 )
 from forager.library.icon_provider import load_icon
-from forager.utils.paths import art_cache_dir, steam_appcache_dir
+from forager.utils.paths import art_cache_dir, banner_cache_dir, steam_appcache_dir
 
 STEAM_CACHE = steam_appcache_dir()
 ART_CACHE = art_cache_dir()
+BANNER_CACHE = banner_cache_dir()
 STEAM_CDN = "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{app_id}/{name}"
 
 
@@ -157,11 +160,39 @@ def load_grid(game: Game, allow_network: bool = True) -> QPixmap | None:
     return bytes_to_pixmap(data) if data else None
 
 
+def _cached_hero_path(game: Game) -> Path | None:
+    BANNER_CACHE.mkdir(parents=True, exist_ok=True)
+    key = _cache_key(game.app_id or game.name)
+    for ext in (".jpg", ".png"):
+        p = BANNER_CACHE / f"hero_{key}{ext}"
+        if p.is_file():
+            return p
+    return None
+
+
 def load_hero_bytes(game: Game, allow_network: bool = True) -> bytes | None:
     for name in ("library_hero.jpg", "library_hero_blur.jpg"):
         local = _steam_path(game, name)
         if local is not None:
             return local.read_bytes()
+
+    cached = _cached_hero_path(game)
+    if cached is not None:
+        return cached.read_bytes()
+
+    if not allow_network:
+        return None
+
+    data = None
+    if game.source == Source.STEAM and game.app_id:
+        data = fetch_banner_bytes_for_steam(game.app_id)
+    if data is None:
+        data = fetch_banner_bytes_for_game(game)
+    if data:
+        BANNER_CACHE.mkdir(parents=True, exist_ok=True)
+        key = _cache_key(game.app_id or game.name)
+        (BANNER_CACHE / f"hero_{key}{_image_ext(data)}").write_bytes(data)
+        return data
     return load_header_bytes(game, allow_network)
 
 
@@ -172,10 +203,13 @@ def load_hero(game: Game, allow_network: bool = True) -> QPixmap | None:
             pix = QPixmap(str(local))
             if not pix.isNull():
                 return pix
-    header = load_header(game, allow_network)
-    if header is not None:
-        return header
-    return None
+    cached = _cached_hero_path(game)
+    if cached is not None:
+        pix = QPixmap(str(cached))
+        if not pix.isNull():
+            return pix
+    data = load_hero_bytes(game, allow_network)
+    return bytes_to_pixmap(data) if data else None
 
 
 def load_logo(game: Game) -> QPixmap | None:

@@ -131,6 +131,7 @@ class GamePage(QWidget):
 
     def _build_banner_overlay(self) -> QWidget:
         overlay = QWidget(self._banner)
+        overlay.setStyleSheet("background: transparent;")
 
         lay = QVBoxLayout(overlay)
         lay.setContentsMargins(20, 16, 20, 20)
@@ -238,9 +239,9 @@ class GamePage(QWidget):
             self._title.setText(game.name.replace("/", " / "))
 
         self._source_badge.setText(game.source_name)
-        self._path_label.setText(str(game.path))
+        self._path_label.setText(game.display_path)
         self._info_rows["source"].setText(game.source_name)
-        self._info_rows["path"].setText(str(game.path))
+        self._info_rows["path"].setText(game.display_path)
         self._info_rows["app_id"].setText(game.app_id or "—")
 
     def set_hero(self, pix: QPixmap | None):

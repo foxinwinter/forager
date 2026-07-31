@@ -5,7 +5,7 @@ from PySide6.QtGui import QFont, QColor, QPainter, QIcon
 from PySide6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QMessageBox,
     QPushButton, QGridLayout, QScrollArea, QStackedWidget, QApplication,
-    QMenuBar,
+    QToolButton, QMenu, QDialog,
 )
 
 from forager.core.game import Game
@@ -143,8 +143,6 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(760, 480)
         self.resize(1100, 700)
 
-        self._build_menu_bar()
-
         central = QWidget()
         self.setCentralWidget(central)
         layout = QHBoxLayout(central)
@@ -192,9 +190,24 @@ class MainWindow(QMainWindow):
         lay.setContentsMargins(16, 0, 16, 0)
         lay.setSpacing(10)
 
-        logo = QLabel("forager")
+        logo = QToolButton()
+        logo.setText("forager")
         logo.setFont(QFont("Roboto", 16, QFont.Weight.Bold))
-        logo.setStyleSheet(f"color: {C.ACCENT_1}; background: transparent;")
+        logo.setCursor(Qt.CursorShape.PointingHandCursor)
+        logo.setToolTip("forager menu")
+        logo.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        logo.setStyleSheet(
+            f"QToolButton {{ color: {C.ACCENT_1}; background: transparent; border: none;"
+            f"border-radius: {C.RADIUS}px; padding: 6px 10px; }}"
+            f"QToolButton:hover {{ background-color: {C.COLOR_3}; }}"
+            f"QToolButton::menu-indicator {{ image: none; }}"
+        )
+        self._main_menu = QMenu(self)
+        self._main_menu.addAction("Settings…", self._open_settings)
+        self._main_menu.addAction("Update Proton", self._update_proton)
+        self._main_menu.addSeparator()
+        self._main_menu.addAction("Quit", QApplication.instance().quit)
+        logo.setMenu(self._main_menu)
         lay.addWidget(logo)
 
         self._back_btn = self._nav_button("‹")
@@ -221,23 +234,6 @@ class MainWindow(QMainWindow):
         lay.addWidget(self._controller_hint)
 
         layout.addWidget(bar)
-
-    def _build_menu_bar(self):
-        bar = QMenuBar(self)
-        bar.setStyleSheet(
-            f"QMenuBar {{ background-color: {C.BG}; color: {C.TEXT}; }}"
-            f"QMenuBar::item {{ padding: 6px 12px; background: transparent; }}"
-            f"QMenuBar::item:selected {{ background-color: {C.COLOR_2}; }}"
-        )
-        menu = bar.addMenu("forager")
-        settings_action = menu.addAction("Settings…")
-        settings_action.triggered.connect(self._open_settings)
-        update_action = menu.addAction("Update Proton")
-        update_action.triggered.connect(self._update_proton)
-        menu.addSeparator()
-        quit_action = menu.addAction("Quit")
-        quit_action.triggered.connect(self.close)
-        self.setMenuBar(bar)
 
     def _open_settings(self):
         self._games_dir_before = str(settings.games_dir)

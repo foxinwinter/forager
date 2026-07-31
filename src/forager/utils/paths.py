@@ -20,6 +20,12 @@ def icon_cache_dir() -> Path:
     return p
 
 
+def banner_cache_dir() -> Path:
+    p = cache_dir() / "banners"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
 def games_dir() -> Path:
     return settings.games_dir
 

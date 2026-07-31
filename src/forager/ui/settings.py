@@ -2,8 +2,8 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QLineEdit,
-    QPushButton, QCheckBox, QTabWidget, QFileDialog, QDialogButtonBox,
-    QFormLayout, QGroupBox, QRadioButton,
+    QPushButton, QCheckBox, QStackedWidget, QButtonGroup, QFileDialog,
+    QDialogButtonBox, QFormLayout, QGroupBox, QRadioButton,
 )
 
 from forager.core.config import settings
@@ -55,15 +55,22 @@ class SettingsDialog(QDialog):
         self._features: dict[str, QCheckBox] = {}
 
         v = QVBoxLayout(self)
-        tabs = QTabWidget()
-        tabs.addTab(self._build_library_tab(), "Library")
-        tabs.addTab(self._build_proton_tab(), "Proton")
-        tabs.setStyleSheet(
-            f"QTabWidget::pane {{ border: 1px solid {C.COLOR_3}; }}"
-            f"QTabBar::tab {{ background: {C.COLOR_2}; color: {C.TEXT_DIM}; padding: 8px 18px; border: none; }}"
-            f"QTabBar::tab:selected {{ color: {C.TEXT}; border-bottom: 2px solid {C.ACCENT_1}; }}"
+        body = QHBoxLayout()
+        body.setSpacing(12)
+
+        nav_group = QButtonGroup(self)
+        nav_group.setExclusive(True)
+        body.addLayout(self._build_nav(nav_group))
+
+        self._pages = QStackedWidget()
+        self._pages.addWidget(self._build_library_tab())
+        self._pages.addWidget(self._build_proton_tab())
+        body.addWidget(self._pages, stretch=1)
+
+        nav_group.buttonClicked.connect(
+            lambda btn: self._pages.setCurrentIndex(self._page_order.index(btn.text()))
         )
-        v.addWidget(tabs)
+        v.addLayout(body)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
@@ -78,12 +85,42 @@ class SettingsDialog(QDialog):
         buttons.rejected.connect(self.reject)
         v.addWidget(buttons)
 
+    def _build_nav(self, group: QButtonGroup) -> QVBoxLayout:
+        self._page_order = ["Library", "Proton"]
+        nav = QVBoxLayout()
+        nav.setSpacing(4)
+        first = True
+        for label in self._page_order:
+            btn = QPushButton(label)
+            btn.setCheckable(True)
+            btn.setChecked(first)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setStyleSheet(
+                f"""
+                QPushButton {{
+                    background-color: {C.COLOR_3}; color: {C.TEXT_MUTED};
+                    border: none; border-radius: {C.RADIUS}px;
+                    padding: 9px 14px; font-size: 13px; text-align: left;
+                }}
+                QPushButton:hover {{ background-color: {C.COLOR_1}; color: {C.TEXT}; }}
+                QPushButton:checked {{
+                    background-color: {C.COLOR_1}; color: {C.ACCENT_1}; font-weight: 600;
+                }}
+                """
+            )
+            group.addButton(btn)
+            nav.addWidget(btn)
+            first = False
+        nav.addStretch(1)
+        return nav
+
     def _group(self, title: str) -> QGroupBox:
         box = QGroupBox(title)
         box.setStyleSheet(
             f"QGroupBox {{ color: {C.TEXT_DIM}; border: 1px solid {C.COLOR_3};"
             f" border-radius: {C.RADIUS}px; margin-top: 12px; padding-top: 6px; }}"
             f"QGroupBox::title {{ subcontrol-origin: margin; left: 12px; padding: 0 4px; }}"
+            f"QLabel {{ color: {C.TEXT}; background: transparent; }}"
         )
         return box
 
@@ -116,7 +153,6 @@ class SettingsDialog(QDialog):
         lay = QVBoxLayout(tab)
 
         form = QFormLayout()
-        form.setStyleSheet("QLabel { color: %s; background: transparent; }" % C.TEXT)
         self._games_dir_edit = self._path_row(form, "Game library folder", str(settings.games_dir))
         self._steam_cache_edit = self._path_row(form, "Steam appcache/librarycache", str(settings.steam_appcache))
         box = self._group("Directories")
@@ -153,7 +189,6 @@ class SettingsDialog(QDialog):
         lay = QVBoxLayout(tab)
 
         form = QFormLayout()
-        form.setStyleSheet("QLabel { color: %s; background: transparent; }" % C.TEXT)
         self._prefix_edit = QLineEdit(settings.proton_prefix_name)
         self._prefix_edit.setStyleSheet(_INPUT_QSS)
         form.addRow("Shared prefix name", self._prefix_edit)

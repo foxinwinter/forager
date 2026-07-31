@@ -47,6 +47,16 @@ class Game:
         }[self.source]
 
     @property
+    def display_path(self) -> str:
+        """Path shown in the UI: ``games/<folder-with-game>`` when under the
+        games directory, else the absolute path."""
+        try:
+            rel = self.path.resolve().relative_to(games_dir())
+            return "games/" + "/".join(rel.parts)
+        except ValueError:
+            return str(self.path)
+
+    @property
     def sgdb_search(self) -> tuple[list[str], str] | None:
         """SGDB search plan: (queries, match_term), or None to skip search.
 
