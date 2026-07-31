@@ -351,7 +351,7 @@ def placeholder_card(game: Game, width: int, height: int, name: str | None = Non
 
 def placeholder_grid(game: Game, width: int, height: int, name: str | None = None) -> QPixmap:
     """Glow-cover placeholder, rendered at 600x900 then cropped to the tile."""
-    cover = _render_placeholder(game, _paint_glow, 600, 900, name)
+    cover = _render_placeholder(game, _paint_glow, 600, 900, name, pts=125)
     return scale_crop(cover, width, height)
 
 
@@ -474,8 +474,8 @@ def _paint_sunburst(p: QPainter, w: int, h: int):
 
 
 def _local_icon_pixmap(game: Game) -> QPixmap | None:
-    """Raw local icon (folder icon / .minecraft/icon.png) at full resolution,
-    unlike the 48px-capped ``load_icon``."""
+    """Raw local icon (folder icon / .minecraft/icon.png / embedded .exe icon)
+    at full resolution, unlike the 48px-capped ``load_icon``."""
     for name in ("icon.png", "icon.ico", "icon.svg", "Icon.png", "Icon.ico"):
         candidate = game.path / name
         if candidate.is_file():
@@ -487,7 +487,26 @@ def _local_icon_pixmap(game: Game) -> QPixmap | None:
         pix = QPixmap(str(mc))
         if not pix.isNull():
             return pix
-    return None
+    return _exe_icon_pixmap(game.path)
+
+
+def _exe_icon_pixmap(path: Path) -> QPixmap | None:
+    from forager.utils.pe_icons import best_icon, find_exe_with_icon
+
+    exe = find_exe_with_icon(path)
+    if exe is None:
+        return None
+    try:
+        im = best_icon(exe)
+    except Exception:
+        return None
+    if im is None:
+        return None
+    qimg = QImage(im.tobytes("raw", "RGBA"), im.width, im.height,
+                  QImage.Format.Format_RGBA8888)
+    if qimg.isNull():
+        return None
+    return QPixmap.fromImage(qimg)
 
 
 def _placeholder_icon(game: Game) -> QPixmap | None:
@@ -498,7 +517,7 @@ def _placeholder_icon(game: Game) -> QPixmap | None:
 
 
 def _render_placeholder(game: Game, background, width: int, height: int,
-                        name: str | None = None) -> QPixmap:
+                        name: str | None = None, pts: int = 46) -> QPixmap:
     pix = QPixmap(width, height)
     pix.fill(Qt.GlobalColor.transparent)
     p = QPainter(pix)
@@ -510,7 +529,7 @@ def _render_placeholder(game: Game, background, width: int, height: int,
     else:
         text_rect = [int(width * 0.08), bottom + int(height * 0.04),
                      int(width * 0.84), int(height - bottom - height * 0.08)]
-    _draw_placeholder_text(p, (name or game.name).replace("/", " / "), text_rect)
+    _draw_placeholder_text(p, (name or game.name).replace("/", " / "), text_rect, pts)
     p.end()
     return pix
 
