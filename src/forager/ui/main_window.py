@@ -1,6 +1,6 @@
 from __future__ import annotations
 import threading
-from PySide6.QtCore import Qt, QTimer, QThread, QObject, Signal
+from PySide6.QtCore import Qt, QEvent, QTimer, QThread, QObject, Signal
 from PySide6.QtGui import QFont, QColor, QPainter, QIcon
 from PySide6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QMessageBox,
@@ -291,6 +291,7 @@ class MainWindow(QMainWindow):
         self._scroll.setWidgetResizable(True)
         self._scroll.setStyleSheet(f"QScrollArea {{ background: {C.BG}; border: none; }}")
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._scroll.viewport().installEventFilter(self)
 
         self._grid_host = QWidget()
         self._grid_host.setStyleSheet("background: transparent;")
@@ -398,13 +399,15 @@ class MainWindow(QMainWindow):
         card_h = card_w * 3 // 2
         remainder = max(0, viewport_w - (card_w * cols + spacing * (cols - 1)))
 
+        old_cols = getattr(self, "_layout_cols", 0)
+        for col in range(max(old_cols, cols)):
+            self._grid.setColumnStretch(col, 1 if col < cols else 0)
+        self._layout_cols = cols
+
         for i, card in enumerate(self._cards):
             w = card_w + (remainder if i % cols == cols - 1 else 0)
             card.setFixedSize(w, card_h)
             self._grid.addWidget(card, i // cols, i % cols)
-
-        for col in range(cols):
-            self._grid.setColumnStretch(col, 1)
 
     def _filtered_games(self) -> list[Game]:
         src = self._sidebar._current_source
@@ -494,9 +497,10 @@ class MainWindow(QMainWindow):
         self._shutdown_threads()
         super().closeEvent(event)
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        QTimer.singleShot(0, self._relayout_cards)
+    def eventFilter(self, obj, event):
+        if obj is self._scroll.viewport() and event.type() == QEvent.Type.Resize:
+            self._relayout_cards()
+        return super().eventFilter(obj, event)
 
     def _shutdown_threads(self):
         self._controller.stop()
