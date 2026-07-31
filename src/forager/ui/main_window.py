@@ -171,12 +171,9 @@ class MainWindow(QMainWindow):
         self._gamepage = GamePage()
         self._content.addWidget(self._gamepage)
 
-        self._sidebar.home_requested.connect(self._show_home)
         self._sidebar.game_selected.connect(self._open_game)
-        self._sidebar.source_changed.connect(self._on_filter_changed)
         self._sidebar.search_changed.connect(self._on_search_changed)
         self._sidebar.update_proton_requested.connect(self._update_proton)
-        self._sidebar.settings_requested.connect(self._open_settings)
         self._sidebar.token_set.connect(lambda: self._status_show("SGDB token saved"))
         self._gamepage.play.connect(self._launch_game)
         self._gamepage.back_requested.connect(self._show_home)
@@ -427,12 +424,9 @@ class MainWindow(QMainWindow):
             self._grid.addWidget(card, i // cols, i % cols)
 
     def _filtered_games(self) -> list[Game]:
-        src = self._sidebar._current_source
         text = self._sidebar._search_text
         out = []
         for g in self._games:
-            if src is not None and g.source != src:
-                continue
             if text and text not in g.name.lower():
                 continue
             out.append(g)
@@ -444,9 +438,6 @@ class MainWindow(QMainWindow):
 
         for card in self._cards:
             card.set_art(art.load_grid(card.game, allow_network=False))
-
-    def _on_filter_changed(self, _src):
-        self._rebuild_cards()
 
     def _on_search_changed(self, _text):
         self._rebuild_cards()

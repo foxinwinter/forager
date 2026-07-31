@@ -2,51 +2,29 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QWidget, QVBoxLayout, QLabel, QPushButton,
     QLineEdit, QListWidget, QListWidgetItem, QFrame,
     QInputDialog, QMessageBox,
 )
 
-from forager.core.game import Game, Source
+from forager.core.game import Game
 from forager.library.icon_provider import load_icon
 from forager.ui.theme import C
 from forager.ui.icons import load_icon as load_bundled_icon
 
 _SIDEBAR_W = 240
 
-_SOURCE_ICONS = {
-    Source.STEAM: "playstation-gamepad",
-    Source.MINECRAFT: "cube",
-    Source.STANDALONE: "box",
-}
-
-
-def source_icon(src: Source, size=16) -> QIcon:
-    return load_bundled_icon(_SOURCE_ICONS.get(src, "playstation-gamepad"), C.TEXT_MUTED)
-
 
 class Sidebar(QWidget):
-    home_requested = Signal()
     game_selected = Signal(object)
-    source_changed = Signal(object)
     search_changed = Signal(str)
     update_proton_requested = Signal()
-    settings_requested = Signal()
     token_set = Signal()
-
-    _FILTERS = [
-        (None, "All Games"),
-        (Source.STEAM, "Steam"),
-        (Source.MINECRAFT, "Minecraft"),
-        (Source.STANDALONE, "Standalone"),
-    ]
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._games: list[Game] = []
-        self._current_source: Source | None = None
         self._search_text = ""
-        self._buttons: list[QPushButton] = []
 
         self.setFixedWidth(_SIDEBAR_W)
         self.setStyleSheet(f"background-color: {C.COLOR_2};")
@@ -55,92 +33,9 @@ class Sidebar(QWidget):
         layout.setContentsMargins(12, 16, 12, 12)
         layout.setSpacing(8)
 
-        self._build_home(layout)
-        self._build_filters(layout)
         self._build_search(layout)
         self._build_list(layout)
         self._build_user_panel(layout)
-
-    def _build_home(self, layout):
-        self._home_btn = QPushButton("Home")
-        self._home_btn.setStyleSheet(
-            f"""
-            QPushButton {{
-                background-color: {C.COLOR_1}; color: {C.TEXT};
-                border: none; border-radius: {C.RADIUS}px;
-                padding: 10px 12px; font-size: 13px; font-weight: 600;
-                text-align: left;
-            }}
-            QPushButton:hover {{ background-color: {C.COLOR_3}; }}
-            """
-        )
-        self._home_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._home_btn.clicked.connect(self.home_requested)
-        layout.addWidget(self._home_btn)
-
-    def _build_filters(self, layout):
-        header = QWidget()
-        header.setStyleSheet("background: transparent;")
-        header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(4, 8, 4, 0)
-        header_layout.setSpacing(4)
-
-        label = QLabel("LIBRARY")
-        label.setStyleSheet(
-            f"color: {C.TEXT_DIM}; font-size: 11px; font-weight: 700;"
-            f"letter-spacing: 1px;"
-        )
-        header_layout.addWidget(label)
-        header_layout.addStretch(1)
-
-        settings_btn = QPushButton()
-        settings_btn.setIcon(load_bundled_icon("settings", C.TEXT_DIM))
-        settings_btn.setIconSize(QSize(14, 14))
-        settings_btn.setToolTip("Settings")
-        settings_btn.setFixedSize(26, 22)
-        settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        settings_btn.setStyleSheet(
-            f"QPushButton {{ background: transparent; border: none;"
-            f"border-radius: 4px; padding: 0; }}"
-        )
-        settings_btn.clicked.connect(self.settings_requested)
-        header_layout.addWidget(settings_btn)
-
-        layout.addWidget(header)
-
-        for src, text in self._FILTERS:
-            btn = QPushButton(text)
-            btn.setCheckable(True)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet(self._filter_style())
-            if src is None:
-                btn.setChecked(True)
-            if src is not None:
-                btn.setIcon(source_icon(src, 14))
-                btn.setIconSize(QSize(14, 14))
-            btn.clicked.connect(lambda _=False, s=src: self._set_filter(s))
-            layout.addWidget(btn)
-            self._buttons.append(btn)
-
-    def _filter_style(self) -> str:
-        return f"""
-            QPushButton {{
-                background-color: {C.COLOR_3}; color: {C.TEXT_MUTED};
-                border: none; border-radius: {C.RADIUS}px;
-                padding: 7px 10px; font-size: 13px; text-align: left;
-            }}
-            QPushButton:hover {{ background-color: {C.COLOR_1}; color: {C.TEXT}; }}
-            QPushButton:checked {{
-                background-color: {C.COLOR_1}; color: {C.ACCENT_1}; font-weight: 600;
-            }}
-        """
-
-    def _set_filter(self, src: Source | None):
-        self._current_source = src
-        for btn, (s, _) in zip(self._buttons, self._FILTERS):
-            btn.setChecked(s is src)
-        self._rebuild_list()
-        self.source_changed.emit(src)
 
     def _build_search(self, layout):
         self._search = QLineEdit()
@@ -279,8 +174,6 @@ class Sidebar(QWidget):
         self._list.clear()
         shown = 0
         for g in self._games:
-            if self._current_source is not None and g.source != self._current_source:
-                continue
             if self._search_text and self._search_text not in g.name.lower():
                 continue
             item = QListWidgetItem()
@@ -291,7 +184,7 @@ class Sidebar(QWidget):
             if icon is not None:
                 item.setIcon(QIcon(icon))
             else:
-                item.setIcon(source_icon(g.source, 16))
+                item.setIcon(load_bundled_icon("box", C.TEXT_MUTED))
             self._list.addItem(item)
             if keep is not None and g == keep:
                 self._list.setCurrentItem(item)
@@ -301,7 +194,7 @@ class Sidebar(QWidget):
             self._list.setCurrentRow(0)
         self._list.blockSignals(False)
 
-        total = len([g for g in self._games if self._current_source is None or g.source == self._current_source])
+        total = len(self._games)
         self._count_label.setText(f"{shown} of {total} games")
 
     def set_icon(self, game: Game, icon: QIcon):
