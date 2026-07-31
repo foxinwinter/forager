@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 
-from gamehub.core.config import default_cache_dir, settings
+from forager.core.config import default_cache_dir, settings
 
 
 def cache_dir() -> Path:

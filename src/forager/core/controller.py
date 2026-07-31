@@ -39,13 +39,11 @@ def is_gamepad(device) -> bool:
             ecodes.BTN_SOUTH, ecodes.BTN_EAST, ecodes.BTN_START,
             ecodes.BTN_DPAD_UP, ecodes.BTN_TR,
         }
-        if keys & gamepad_btns:
-            return True
-        if axes and {ecodes.ABS_X, ecodes.ABS_Y}.issubset(axes):
-            return True
+        if not keys & gamepad_btns:
+            return False
+        return bool(axes)
     except Exception:
-        pass
-    return False
+        return False
 
 
 class ControllerPoller(QThread):

@@ -6,9 +6,9 @@ from PySide6.QtWidgets import (
     QFrame,
 )
 
-from gamehub.core.game import Game
-from gamehub.services import art
-from gamehub.ui.theme import C
+from forager.core.game import Game
+from forager.services import art
+from forager.ui.theme import C
 
 _BANNER_H = 420
 

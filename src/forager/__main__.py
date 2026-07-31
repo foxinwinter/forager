@@ -1,4 +1,4 @@
-from gamehub.main import main
+from forager.main import main
 
 if __name__ == "__main__":
     main()

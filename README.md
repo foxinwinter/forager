@@ -22,37 +22,45 @@ Your game library folder is expected to look like:
 ├── steam/
 │   └── steamapps/            # appmanifest_*.acf + common/<name>
 ├── minecraft/                # one folder per Minecraft instance
-└── standalone/
-    ├── <game>/               # loose games (finds *.x86_64, *.sh, *.py, *.exe)
+└── drm-free/
+    ├── standalone/
+    │   └── <engine>/         # engine group: other, rpgMaker, unity, unreal
+    │       └── <game>/       # standalone games (finds *.x86_64, *.sh, *.py, *.exe)
     └── series/
-        └── <series>/<game>/  # games grouped by series
+        └── <engine>/
+            └── <series>/
+                └── <game>/   # games grouped by series
 ```
+
+Games grouped by their engine (`rpgMaker`, `unity`, `unreal`, `other`) under
+`standalone/` (single games) and `series/` (series games). Games are detected
+by an executable or `Game.ini` in the folder.
 
 ## Install
 
 ```sh
 python -m venv .venv
 .venv/bin/pip install -e .
-.venv/bin/gamehub
+.venv/bin/forager
 ```
 
 or use `run.sh` with an existing virtualenv:
 
 ```sh
-GAMEHUB_VENV=/path/to/venv ./run.sh
+FORAGER_VENV=/path/to/venv ./run.sh
 ```
 
 ## Configuration
 
-Settings are stored in `~/.config/gamehub/settings.json`; cover art caches live
-in `~/.cache/gamehub/`. Open the **forager → Settings…** menu to change the game
+Settings are stored in `~/.config/forager/settings.json`; cover art caches live
+in `~/.cache/forager/`. Open the **forager → Settings…** menu to change the game
 library folder, the Steam appcache/librarycache folder, the Proton prefix name,
 and which extras get added to the prefix.
 
 Environment overrides:
 
-- `GAMEHUB_CONFIG_DIR` — config directory (default `~/.config/gamehub`)
-- `GAMEHUB_CACHE_DIR` — cache directory (default `~/.cache/gamehub`)
+- `FORAGER_CONFIG_DIR` — config directory (default `~/.config/forager`)
+- `FORAGER_CACHE_DIR` — cache directory (default `~/.cache/forager`)
 - `STEAMGRIDDB_API_KEY` — SteamGridDB token fallback if none is stored in keyring
 
 ## License

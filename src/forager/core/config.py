@@ -3,7 +3,7 @@ import json
 import os
 from pathlib import Path
 
-APP_NAME = "gamehub"
+APP_NAME = "forager"
 
 DEFAULTS = {
     "games_dir": str(Path.home() / "Games"),
@@ -18,14 +18,14 @@ DEFAULTS = {
 
 
 def default_config_dir() -> Path:
-    override = os.getenv("GAMEHUB_CONFIG_DIR")
+    override = os.getenv("FORAGER_CONFIG_DIR")
     if override:
         return Path(override)
     return Path.home() / ".config" / APP_NAME
 
 
 def default_cache_dir() -> Path:
-    override = os.getenv("GAMEHUB_CACHE_DIR")
+    override = os.getenv("FORAGER_CACHE_DIR")
     if override:
         return Path(override)
     return Path.home() / ".cache" / APP_NAME

@@ -8,8 +8,8 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-from gamehub.core.config import settings
-from gamehub.utils.paths import (
+from forager.core.config import settings
+from forager.utils.paths import (
     proton_dir,
     proton_prefix_dir,
     rtp_source_dir,

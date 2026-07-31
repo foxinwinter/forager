@@ -3,11 +3,11 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
 
-from gamehub.utils.paths import games_dir
+from forager.utils.paths import games_dir
 
 GENERIC_CONTAINERS = {
     "standalone", "series", "minecraft", "steam", "rpgmaker", "rpg",
-    "games", "instances", "launcher", "single", "flash",
+    "games", "instances", "launcher", "single", "flash", "drm-free",
 }
 
 

@@ -3,14 +3,14 @@ from PySide6.QtCore import Qt, Signal, QRectF
 from PySide6.QtGui import QColor, QPen, QPainter, QPainterPath, QFont, QFontMetrics, QPixmap, QLinearGradient
 from PySide6.QtWidgets import QWidget
 
-from gamehub.core.game import Game
-from gamehub.services import art
-from gamehub.ui.theme import C
+from forager.core.game import Game
+from forager.services import art
+from forager.ui.theme import C
 
 CARD_W = 232
 CARD_H = 348
+MIN_CARD_W = 120
 _RADIUS = C.RADIUS
-_OVERLAY_H = 68
 
 
 class GameCard(QWidget):
@@ -23,7 +23,6 @@ class GameCard(QWidget):
         self._focused = False
         self._art: QPixmap | None = None
 
-        self.setFixedSize(CARD_W, CARD_H)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
@@ -39,6 +38,7 @@ class GameCard(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
+        w, h = self.width(), self.height()
         rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
         path = QPainterPath()
         path.addRoundedRect(rect, _RADIUS, _RADIUS)
@@ -46,12 +46,12 @@ class GameCard(QWidget):
 
         p.fillRect(rect, QColor(C.COLOR_3))
         if self._art is not None and not self._art.isNull():
-            p.drawPixmap(self.rect(), art.scale_crop(self._art, CARD_W, CARD_H))
+            p.drawPixmap(self.rect(), art.scale_crop(self._art, w, h))
         else:
-            self._paint_placeholder(p)
+            self._paint_placeholder(p, w, h)
 
         if self._overlay_visible():
-            self._paint_overlay(p)
+            self._paint_overlay(p, w, h)
 
         p.setClipping(False)
         p.setBrush(Qt.BrushStyle.NoBrush)
@@ -62,44 +62,50 @@ class GameCard(QWidget):
             p.setPen(QPen(QColor(255, 255, 255, 45), 1))
             p.drawRoundedRect(rect, _RADIUS, _RADIUS)
 
-    def _paint_placeholder(self, p: QPainter):
+    def _paint_placeholder(self, p: QPainter, w: int, h: int):
         icon = art.load_icon(self.game, allow_network=False)
         if icon is not None:
+            side = max(36, w // 3)
             icon = icon.scaled(
-                72, 72,
+                side, side,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             )
-            p.drawPixmap((CARD_W - icon.width()) // 2, CARD_H // 2 - 64, icon)
+            p.drawPixmap(
+                (w - icon.width()) // 2,
+                max(6, h // 2 - icon.height() // 2 - 24),
+                icon,
+            )
 
         label = self.game.name.replace("/", " / ")
-        font = QFont("Roboto", 11, QFont.Weight.Medium)
+        font = QFont("Roboto", max(9, w // 21), QFont.Weight.Medium)
         p.setFont(font)
         fm = QFontMetrics(font)
-        while fm.horizontalAdvance(label) > CARD_W - 24 and len(label) > 10:
+        while fm.horizontalAdvance(label) > w - 24 and len(label) > 10:
             label = label[:-3] + "…"
         p.setPen(QColor(C.TEXT_DIM))
         p.drawText(
-            QRectF(12, CARD_H - 44, CARD_W - 24, 24),
+            QRectF(12, h - 40, w - 24, 24),
             Qt.AlignmentFlag.AlignCenter,
             label,
         )
 
-    def _paint_overlay(self, p: QPainter):
-        grad = QLinearGradient(0, CARD_H - _OVERLAY_H, 0, CARD_H)
+    def _paint_overlay(self, p: QPainter, w: int, h: int):
+        overlay_h = max(44, h // 5)
+        grad = QLinearGradient(0, h - overlay_h, 0, h)
         grad.setColorAt(0, QColor(0, 0, 0, 0))
         grad.setColorAt(1, QColor(0, 0, 0, 205))
-        p.fillRect(QRectF(0, CARD_H - _OVERLAY_H, CARD_W, _OVERLAY_H), grad)
+        p.fillRect(QRectF(0, h - overlay_h, w, overlay_h), grad)
 
         label = self.game.name.replace("/", " / ")
-        font = QFont("Roboto", 12, QFont.Weight.DemiBold)
+        font = QFont("Roboto", max(10, w // 19), QFont.Weight.DemiBold)
         p.setFont(font)
         fm = QFontMetrics(font)
-        while fm.horizontalAdvance(label) > CARD_W - 20 and len(label) > 10:
+        while fm.horizontalAdvance(label) > w - 20 and len(label) > 10:
             label = label[:-3] + "…"
         p.setPen(QColor(C.TEXT))
         p.drawText(
-            QRectF(10, CARD_H - _OVERLAY_H + 12, CARD_W - 20, _OVERLAY_H - 16),
+            QRectF(10, h - overlay_h + 8, w - 20, overlay_h - 12),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             label,
         )

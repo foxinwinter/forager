@@ -3,11 +3,11 @@ import hashlib
 from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap, QImage
-from gamehub.core.game import Game, Source
-from gamehub.library.steamgriddb import (
+from forager.core.game import Game, Source
+from forager.library.steamgriddb import (
     fetch_icon_bytes_for_steam, fetch_icon_bytes_for_game,
 )
-from gamehub.utils.paths import icon_cache_dir, steam_appcache_dir
+from forager.utils.paths import icon_cache_dir, steam_appcache_dir
 
 STEAM_CACHE = steam_appcache_dir()
 ICON_CACHE = icon_cache_dir()
@@ -63,7 +63,7 @@ def load_icon(game: Game, allow_network: bool = True) -> QPixmap | None:
     if pix is None:
         pix = _load_game_icon_direct(game)
     if pix is None and allow_network:
-        from gamehub.services.art import bytes_to_pixmap
+        from forager.services.art import bytes_to_pixmap
 
         data = load_icon_bytes(game, True)
         if data:

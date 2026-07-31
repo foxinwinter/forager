@@ -5,14 +5,14 @@ import urllib.request
 from pathlib import Path
 from PySide6.QtCore import Qt, QByteArray
 from PySide6.QtGui import QPixmap, QImage, QPainter, QColor, QFont, QFontMetrics
-from gamehub.core.game import Game, Source
-from gamehub.library.steamgriddb import (
+from forager.core.game import Game, Source
+from forager.library.steamgriddb import (
     fetch_header_bytes_for_steam,
     fetch_grid_bytes_for_steam, fetch_grid_bytes_for_game,
     fetch_header_bytes_for_game,
 )
-from gamehub.library.icon_provider import load_icon
-from gamehub.utils.paths import art_cache_dir, steam_appcache_dir
+from forager.library.icon_provider import load_icon
+from forager.utils.paths import art_cache_dir, steam_appcache_dir
 
 STEAM_CACHE = steam_appcache_dir()
 ART_CACHE = art_cache_dir()

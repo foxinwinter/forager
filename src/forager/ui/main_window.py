@@ -8,17 +8,17 @@ from PySide6.QtWidgets import (
     QMenuBar,
 )
 
-from gamehub.core.game import Game
-from gamehub.core.config import settings
-from gamehub.library.scanner import scan_all
-from gamehub.library.launcher import launch
-from gamehub.core.controller import ControllerPoller
-from gamehub.services.art import bytes_to_pixmap
-from gamehub.ui.theme import C
-from gamehub.ui.sidebar import Sidebar
-from gamehub.ui.game_card import GameCard, CARD_W, CARD_H
-from gamehub.ui.gamepage import GamePage
-from gamehub.ui.settings import SettingsDialog
+from forager.core.game import Game
+from forager.core.config import settings
+from forager.library.scanner import scan_all
+from forager.library.launcher import launch
+from forager.core.controller import ControllerPoller
+from forager.services.art import bytes_to_pixmap
+from forager.ui.theme import C
+from forager.ui.sidebar import Sidebar
+from forager.ui.game_card import GameCard, CARD_W, MIN_CARD_W
+from forager.ui.gamepage import GamePage
+from forager.ui.settings import SettingsDialog
 
 
 class ScanWorker(QThread):
@@ -35,7 +35,7 @@ class ProtonUpdateWorker(QThread):
     done = Signal(bool, str)
 
     def run(self):
-        from gamehub.library.proton import update_proton
+        from forager.library.proton import update_proton
 
         try:
             update_proton(self.message.emit)
@@ -55,8 +55,8 @@ class HeroSignals(QObject):
 
 
 def _art_job(games: list[Game], signals: ArtSignals, stop_event: threading.Event):
-    from gamehub.services import art
-    from gamehub.library.icon_provider import load_icon_bytes
+    from forager.services import art
+    from forager.library.icon_provider import load_icon_bytes
 
     for game in games:
         if stop_event.is_set():
@@ -72,7 +72,7 @@ def _art_job(games: list[Game], signals: ArtSignals, stop_event: threading.Event
 
 
 def _hero_job(game: Game, signals: HeroSignals, stop_event: threading.Event):
-    from gamehub.services import art
+    from forager.services import art
 
     if stop_event.is_set():
         return
@@ -374,18 +374,37 @@ class MainWindow(QMainWindow):
             card.activated.connect(self._launch_game)
             self._cards.append(card)
 
-        cols = max(1, (self._scroll.viewport().width() - 16) // (CARD_W + 16))
-        row = col = 0
-        for card in self._cards:
-            self._grid.addWidget(card, row, col)
-            col += 1
-            if col >= cols:
-                col = 0
-                row += 1
-
         self._empty_label.setVisible(len(self._cards) == 0)
         self._scroll.setVisible(len(self._cards) > 0)
+        self._relayout_cards()
         self._load_card_art()
+
+    def _relayout_cards(self):
+        if not self._cards:
+            return
+        for i in reversed(range(self._grid.count())):
+            widget = self._grid.itemAt(i).widget()
+            if widget is not None:
+                self._grid.removeWidget(widget)
+
+        viewport_w = self._scroll.viewport().width()
+        scrollbar = self._scroll.verticalScrollBar()
+        if scrollbar is not None:
+            viewport_w -= scrollbar.sizeHint().width()
+
+        spacing = self._grid.spacing()
+        cols = max(1, (viewport_w + spacing) // (CARD_W + spacing))
+        card_w = max(MIN_CARD_W, (viewport_w - spacing * (cols - 1)) // cols)
+        card_h = card_w * 3 // 2
+        remainder = max(0, viewport_w - (card_w * cols + spacing * (cols - 1)))
+
+        for i, card in enumerate(self._cards):
+            w = card_w + (remainder if i % cols == cols - 1 else 0)
+            card.setFixedSize(w, card_h)
+            self._grid.addWidget(card, i // cols, i % cols)
+
+        for col in range(cols):
+            self._grid.setColumnStretch(col, 1)
 
     def _filtered_games(self) -> list[Game]:
         src = self._sidebar._current_source
@@ -401,7 +420,7 @@ class MainWindow(QMainWindow):
         return out
 
     def _load_card_art(self):
-        from gamehub.services import art
+        from forager.services import art
 
         for card in self._cards:
             card.set_art(art.load_grid(card.game, allow_network=False))
@@ -474,6 +493,10 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         self._shutdown_threads()
         super().closeEvent(event)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        QTimer.singleShot(0, self._relayout_cards)
 
     def _shutdown_threads(self):
         self._controller.stop()

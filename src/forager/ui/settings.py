@@ -6,9 +6,9 @@ from PySide6.QtWidgets import (
     QFormLayout, QGroupBox,
 )
 
-from gamehub.core.config import settings
-from gamehub.library import proton
-from gamehub.ui.theme import C
+from forager.core.config import settings
+from forager.library import proton
+from forager.ui.theme import C
 
 _INPUT_QSS = f"""
 QLineEdit {{
