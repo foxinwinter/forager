@@ -8,6 +8,7 @@ APP_NAME = "forager"
 DEFAULTS = {
     "games_dir": str(Path.home() / "Games"),
     "steam_appcache": str(Path.home() / ".local/share/Steam/appcache/librarycache"),
+    "display_size": "medium",
     "proton": {
         "prefix_name": "single",
         "features": {

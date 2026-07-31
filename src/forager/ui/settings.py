@@ -3,12 +3,25 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QLineEdit,
     QPushButton, QCheckBox, QTabWidget, QFileDialog, QDialogButtonBox,
-    QFormLayout, QGroupBox,
+    QFormLayout, QGroupBox, QRadioButton,
 )
 
 from forager.core.config import settings
 from forager.library import proton
 from forager.ui.theme import C
+
+DISPLAY_SIZES = [
+    ("small", "Small", 120, 180),
+    ("medium", "Medium", 165, 248),
+    ("large", "Large", 250, 375),
+]
+
+
+def resolve_card_size(key: str) -> tuple[int, int]:
+    for k, _label, w, h in DISPLAY_SIZES:
+        if k == key:
+            return (w, h)
+    return (165, 248)
 
 _INPUT_QSS = f"""
 QLineEdit {{
@@ -101,14 +114,32 @@ class SettingsDialog(QDialog):
         tab = QWidget()
         tab.setStyleSheet(f"background-color: {C.BG};")
         lay = QVBoxLayout(tab)
+
         form = QFormLayout()
         form.setStyleSheet("QLabel { color: %s; background: transparent; }" % C.TEXT)
         self._games_dir_edit = self._path_row(form, "Game library folder", str(settings.games_dir))
         self._steam_cache_edit = self._path_row(form, "Steam appcache/librarycache", str(settings.steam_appcache))
-        lay.addWidget(self._group("Directories"))
         box = self._group("Directories")
         box.setLayout(form)
         lay.addWidget(box)
+
+        size_box = self._group("Display size")
+        size_lay = QVBoxLayout(size_box)
+        current = settings.get("display_size", "medium")
+        self._size_radios: dict[str, QRadioButton] = {}
+        for key, label, w, h in DISPLAY_SIZES:
+            rb = QRadioButton(f"{label}  ({w}×{h})")
+            rb.setChecked(key == current)
+            rb.setStyleSheet(
+                f"QRadioButton {{ color: {C.TEXT}; background: transparent; spacing: 8px; }}"
+                f"QRadioButton::indicator {{ width: 16px; height: 16px;"
+                f" border: 1px solid {C.COLOR_3}; border-radius: 8px; background: {C.COLOR_2}; }}"
+                f"QRadioButton::indicator:checked {{ background-color: {C.ACCENT_1}; }}"
+            )
+            self._size_radios[key] = rb
+            size_lay.addWidget(rb)
+        lay.addWidget(size_box)
+
         note = QLabel("Steam folder is used for already-downloaded cover art and to locate your Steam client install.")
         note.setWordWrap(True)
         note.setStyleSheet(f"color: {C.TEXT_DIM}; font-size: 11px; background: transparent;")
@@ -169,6 +200,8 @@ class SettingsDialog(QDialog):
     def _save(self):
         settings.set("games_dir", self._games_dir_edit.text().strip() or str(settings.games_dir))
         settings.set("steam_appcache", self._steam_cache_edit.text().strip() or str(settings.steam_appcache))
+        selected = next((k for k, rb in self._size_radios.items() if rb.isChecked()), "medium")
+        settings.set("display_size", selected)
         settings.data.setdefault("proton", {})["prefix_name"] = self._prefix_edit.text().strip() or "single"
         features = settings.data.setdefault("proton", {}).setdefault("features", {})
         for name, cb in self._features.items():

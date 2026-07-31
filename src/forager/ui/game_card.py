@@ -16,13 +16,13 @@ class GameCard(QWidget):
     clicked = Signal(object)
     activated = Signal(object)
 
-    def __init__(self, game: Game, parent=None):
+    def __init__(self, game: Game, parent=None, card_w: int = CARD_W, card_h: int = CARD_H):
         super().__init__(parent)
         self.game = game
         self._focused = False
         self._art: QPixmap | None = None
 
-        self.setFixedSize(CARD_W, CARD_H)
+        self.setFixedSize(card_w, card_h)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)

@@ -16,9 +16,13 @@ from forager.core.controller import ControllerPoller
 from forager.services.art import bytes_to_pixmap
 from forager.ui.theme import C
 from forager.ui.sidebar import Sidebar
-from forager.ui.game_card import GameCard, CARD_W
+from forager.ui.game_card import GameCard
 from forager.ui.gamepage import GamePage
-from forager.ui.settings import SettingsDialog
+from forager.ui.settings import SettingsDialog, resolve_card_size
+
+_GRID_MARGIN = 23
+_GRID_MIN_GAP = 12
+_GRID_V_GAP = 16
 
 
 class ScanWorker(QThread):
@@ -118,6 +122,7 @@ class MainWindow(QMainWindow):
         self._games: list[Game] = []
         self._cards: list[GameCard] = []
         self._card_index = 0
+        self._card_w, self._card_h = resolve_card_size(settings.get("display_size", "medium"))
         self._controller = ControllerPoller(self)
         self._scan_done = False
         self._hero_done: set = set()
@@ -172,6 +177,7 @@ class MainWindow(QMainWindow):
         self._sidebar.source_changed.connect(self._on_filter_changed)
         self._sidebar.search_changed.connect(self._on_search_changed)
         self._sidebar.update_proton_requested.connect(self._update_proton)
+        self._sidebar.settings_requested.connect(self._open_settings)
         self._sidebar.token_set.connect(lambda: self._status_show("SGDB token saved"))
         self._gamepage.play.connect(self._launch_game)
         self._gamepage.back_requested.connect(self._show_home)
@@ -239,6 +245,13 @@ class MainWindow(QMainWindow):
         dialog.update_proton_requested.connect(self._update_proton)
         dialog.games_dir_changed.connect(self._reload_library)
         if dialog.exec() == SettingsDialog.DialogCode.Accepted:
+            size_key = next((k for k, rb in dialog._size_radios.items() if rb.isChecked()), "medium")
+            w, h = resolve_card_size(size_key)
+            if (w, h) != (self._card_w, self._card_h):
+                self._card_w, self._card_h = w, h
+                for card in self._cards:
+                    card.setFixedSize(w, h)
+                self._relayout_cards()
             if dialog._games_dir_edit.text() != str(self._games_dir_before):
                 self._reload_library()
             else:
@@ -370,7 +383,7 @@ class MainWindow(QMainWindow):
 
         games = self._filtered_games()
         for game in games:
-            card = GameCard(game)
+            card = GameCard(game, card_w=self._card_w, card_h=self._card_h)
             card.clicked.connect(self._open_game)
             card.activated.connect(self._launch_game)
             self._cards.append(card)
@@ -393,8 +406,20 @@ class MainWindow(QMainWindow):
         if scrollbar is not None:
             viewport_w -= scrollbar.sizeHint().width()
 
-        spacing = self._grid.spacing()
-        cols = max(1, (viewport_w + spacing) // (CARD_W + spacing))
+        avail = max(1, viewport_w - 2 * _GRID_MARGIN)
+        cols = max(1, (avail + _GRID_MIN_GAP) // (self._card_w + _GRID_MIN_GAP))
+        cols = min(cols, len(self._cards))
+
+        used = cols * self._card_w + (cols - 1) * _GRID_MIN_GAP
+        remaining = avail - used
+        if cols > 1 and remaining > 0:
+            gap = _GRID_MIN_GAP + remaining // (cols - 1)
+        else:
+            gap = _GRID_MIN_GAP
+
+        self._grid.setContentsMargins(_GRID_MARGIN, 0, _GRID_MARGIN, 0)
+        self._grid.setHorizontalSpacing(gap)
+        self._grid.setVerticalSpacing(_GRID_V_GAP)
 
         old_cols = getattr(self, "_layout_cols", 0)
         for col in range(max(old_cols, cols)):

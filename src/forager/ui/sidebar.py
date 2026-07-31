@@ -41,6 +41,7 @@ class Sidebar(QWidget):
     source_changed = Signal(object)
     search_changed = Signal(str)
     update_proton_requested = Signal()
+    settings_requested = Signal()
     token_set = Signal()
 
     _FILTERS = [
@@ -88,12 +89,33 @@ class Sidebar(QWidget):
         layout.addWidget(self._home_btn)
 
     def _build_filters(self, layout):
+        header = QWidget()
+        header.setStyleSheet("background: transparent;")
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(4, 8, 4, 0)
+        header_layout.setSpacing(4)
+
         label = QLabel("LIBRARY")
         label.setStyleSheet(
             f"color: {C.TEXT_DIM}; font-size: 11px; font-weight: 700;"
-            f"padding: 8px 4px 2px; letter-spacing: 1px;"
+            f"letter-spacing: 1px;"
         )
-        layout.addWidget(label)
+        header_layout.addWidget(label)
+        header_layout.addStretch(1)
+
+        settings_btn = QPushButton("⚙")
+        settings_btn.setToolTip("Settings")
+        settings_btn.setFixedSize(26, 22)
+        settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        settings_btn.setStyleSheet(
+            f"QPushButton {{ background: transparent; color: {C.TEXT_DIM}; border: none;"
+            f"border-radius: 4px; font-size: 13px; padding: 0; }}"
+            f"QPushButton:hover {{ color: {C.TEXT}; }}"
+        )
+        settings_btn.clicked.connect(self.settings_requested)
+        header_layout.addWidget(settings_btn)
+
+        layout.addWidget(header)
 
         for src, text in self._FILTERS:
             btn = QPushButton(text)
