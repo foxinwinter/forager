@@ -1,6 +1,6 @@
 from __future__ import annotations
 import threading
-from PySide6.QtCore import Qt, QEvent, QTimer, QThread, QObject, Signal
+from PySide6.QtCore import Qt, QEvent, QTimer, QThread, QObject, Signal, QSize
 from PySide6.QtGui import QFont, QColor, QPainter, QIcon
 from PySide6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QMessageBox,
@@ -15,6 +15,7 @@ from forager.library.launcher import launch
 from forager.core.controller import ControllerPoller
 from forager.services.art import bytes_to_pixmap
 from forager.ui.theme import C
+from forager.ui.icons import load_icon as load_bundled_icon
 from forager.ui.sidebar import Sidebar
 from forager.ui.game_card import GameCard
 from forager.ui.gamepage import GamePage
@@ -210,8 +211,8 @@ class MainWindow(QMainWindow):
         logo.setMenu(self._main_menu)
         lay.addWidget(logo)
 
-        self._back_btn = self._nav_button("‹")
-        self._forward_btn = self._nav_button("›")
+        self._back_btn = self._nav_button("arrow-left")
+        self._forward_btn = self._nav_button("arrow-right")
         self._back_btn.setToolTip("Back to Library")
         self._forward_btn.setToolTip("Forward")
         self._back_btn.clicked.connect(self._show_home)
@@ -260,19 +261,19 @@ class MainWindow(QMainWindow):
         self._hero_done.clear()
         self._load_games()
 
-    def _nav_button(self, text: str) -> QPushButton:
-        btn = QPushButton(text)
+    def _nav_button(self, icon_name: str) -> QPushButton:
+        btn = QPushButton()
         btn.setFixedSize(32, 32)
+        btn.setIcon(load_bundled_icon(icon_name, C.TEXT))
+        btn.setIconSize(QSize(18, 18))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setStyleSheet(
             f"""
             QPushButton {{
-                background-color: {C.COLOR_2}; color: {C.TEXT};
-                border: none; border-radius: {C.RADIUS}px;
-                font-size: 16px; font-weight: 600;
+                background-color: {C.COLOR_2}; border: none;
+                border-radius: {C.RADIUS}px;
             }}
             QPushButton:hover {{ background-color: {C.COLOR_3}; }}
-            QPushButton:disabled {{ color: {C.TEXT_DIM}; }}
             """
         )
         return btn

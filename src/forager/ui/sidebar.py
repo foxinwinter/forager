@@ -1,38 +1,28 @@
 from __future__ import annotations
-from PySide6.QtCore import Qt, QSize, Signal, QFile
-from PySide6.QtGui import QIcon, QColor, QFont, QPixmap
+from PySide6.QtCore import Qt, QSize, Signal
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QLineEdit, QListWidget, QListWidgetItem, QStyle, QFrame,
+    QLineEdit, QListWidget, QListWidgetItem, QFrame,
     QInputDialog, QMessageBox,
 )
 
 from forager.core.game import Game, Source
 from forager.library.icon_provider import load_icon
 from forager.ui.theme import C
+from forager.ui.icons import load_icon as load_bundled_icon
 
 _SIDEBAR_W = 240
 
+_SOURCE_ICONS = {
+    Source.STEAM: "gamepad",
+    Source.MINECRAFT: "cube",
+    Source.STANDALONE: "box",
+}
+
 
 def source_icon(src: Source, size=16) -> QIcon:
-    paths = {
-        Source.STEAM: "/usr/share/icons/hicolor/32x32/apps/steam.png",
-        Source.MINECRAFT: "/usr/share/icons/Papirus/32x32/apps/minecraft.svg",
-        Source.STANDALONE: "/usr/share/icons/breeze/mimetypes/22/application-x-executable.svg",
-    }
-    path = paths.get(src)
-    if path and QFile.exists(path):
-        icon = QIcon(path)
-        if not icon.isNull():
-            return icon
-    icon = QIcon.fromTheme({
-        Source.STEAM: "steam",
-        Source.MINECRAFT: "minecraft",
-        Source.STANDALONE: "application-x-executable",
-    }.get(src, ""))
-    if not icon.isNull():
-        return icon
-    return QIcon.fromTheme("applications-games")
+    return load_bundled_icon(_SOURCE_ICONS.get(src, "gamepad"), C.TEXT_MUTED)
 
 
 class Sidebar(QWidget):
@@ -103,14 +93,15 @@ class Sidebar(QWidget):
         header_layout.addWidget(label)
         header_layout.addStretch(1)
 
-        settings_btn = QPushButton("⚙")
+        settings_btn = QPushButton()
+        settings_btn.setIcon(load_bundled_icon("settings", C.TEXT_DIM))
+        settings_btn.setIconSize(QSize(14, 14))
         settings_btn.setToolTip("Settings")
         settings_btn.setFixedSize(26, 22)
         settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         settings_btn.setStyleSheet(
-            f"QPushButton {{ background: transparent; color: {C.TEXT_DIM}; border: none;"
-            f"border-radius: 4px; font-size: 13px; padding: 0; }}"
-            f"QPushButton:hover {{ color: {C.TEXT}; }}"
+            f"QPushButton {{ background: transparent; border: none;"
+            f"border-radius: 4px; padding: 0; }}"
         )
         settings_btn.clicked.connect(self.settings_requested)
         header_layout.addWidget(settings_btn)
@@ -126,6 +117,7 @@ class Sidebar(QWidget):
                 btn.setChecked(True)
             if src is not None:
                 btn.setIcon(source_icon(src, 14))
+                btn.setIconSize(QSize(14, 14))
             btn.clicked.connect(lambda _=False, s=src: self._set_filter(s))
             layout.addWidget(btn)
             self._buttons.append(btn)
