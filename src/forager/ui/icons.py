@@ -10,7 +10,7 @@ from PySide6.QtSvg import QSvgRenderer
 
 from forager.ui.theme import C
 
-RESOURCE_DIR = Path(__file__).resolve().parents[3] / "resources" / "icons"
+RESOURCE_DIR = Path(__file__).resolve().parent.parent / "resources" / "icons"
 
 _CURRENT_COLOR = re.compile(r'(stroke|fill)="currentColor"')
 

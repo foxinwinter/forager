@@ -24,5 +24,8 @@ forager = "forager.main:main"
 [tool.setuptools]
 package-dir = { "" = "src" }
 
+[tool.setuptools.package-data]
+forager = ["resources/icons/*.svg"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
