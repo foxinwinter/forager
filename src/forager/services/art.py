@@ -2,6 +2,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import re
 import threading
 import urllib.parse
 import urllib.request
@@ -28,6 +29,7 @@ STEAM_STORE_SEARCH = "https://store.steampowered.com/api/storesearch/?term={term
 _STEAM_APPID_CACHE: dict[str, str] = {}
 _STEAM_APPID_LOCK = threading.Lock()
 _STEAM_APPID_FILE = ART_CACHE / "steam_app_ids.json"
+_STEAM_APPID_KEY_PREFIX = "v2:"
 
 
 def _appid_cache() -> dict[str, str]:
@@ -42,7 +44,7 @@ def _appid_cache() -> dict[str, str]:
 
 def _cache_appid(term: str, app_id: str | None) -> None:
     cache = _appid_cache()
-    cache[term.lower()] = app_id or ""
+    cache[_STEAM_APPID_KEY_PREFIX + term.lower()] = app_id or ""
     try:
         ART_CACHE.mkdir(parents=True, exist_ok=True)
         _STEAM_APPID_FILE.write_text(json.dumps(cache))
@@ -50,13 +52,43 @@ def _cache_appid(term: str, app_id: str | None) -> None:
         pass
 
 
-def _steam_search_term(game: Game) -> str:
+def _steam_search_terms(game: Game) -> list[str] | None:
+    """Candidate Steam store search terms, most specific first.
+
+    ``search_names`` wins outright. Series games search their holding folder
+    plus the game name before falling back to the bare name; every game keeps
+    the bare (leaf) name as a last resort.
+    """
     if game.search_names:
-        return game.search_names[0]
+        return list(game.search_names)
+    terms: list[str] = []
+    plan = game.sgdb_search
+    if plan:
+        queries, match_term = plan
+        if match_term:
+            terms = [f"{q} {match_term}" for q in queries] + [match_term]
+        else:
+            terms = list(queries)
     name = game.name
     if "/" in name:
         name = name.rsplit("/", 1)[-1]
-    return name.strip()
+    leaf = name.strip()
+    if leaf and (not terms or leaf != terms[-1]):
+        terms.append(leaf)
+    return terms or None
+
+
+def _name_matches(store_name: str, term: str) -> bool:
+    def norm(s: str) -> str:
+        return re.sub(r"[^a-z0-9]+", " ", s.lower()).strip()
+
+    n = norm(store_name)
+    t = norm(term)
+    if n == t:
+        return True
+    if len(t) >= 8 and n.startswith(t) and (len(n) == len(t) or n[len(t)] == " "):
+        return True
+    return False
 
 
 def _steam_store_search(term: str) -> str | None:
@@ -67,37 +99,35 @@ def _steam_store_search(term: str) -> str | None:
             payload = json.loads(resp.read().decode("utf-8"))
     except Exception:
         return None
-    items = payload.get("items") or []
-    apps = [it for it in items if it.get("type") == "app"]
-    if not apps:
-        return None
-    exact = term.lower()
-    for it in apps:
-        if (it.get("name") or "").lower() == exact:
+    for it in payload.get("items") or []:
+        if it.get("type") == "app" and _name_matches(it.get("name") or "", term):
             return str(it.get("id"))
-    for it in apps:
-        if it.get("exact_name_match"):
-            return str(it.get("id"))
-    return str(apps[0].get("id"))
+    return None
 
 
 def steam_app_id(game: Game) -> str | None:
     """Resolve the Steam App ID for a game.
 
-    Steam games use their own ``app_id``. Every other game (standalone,
-    DRM-free, Minecraft, ...) is looked up on the Steam store by title, and
-    the result is cached on disk so the lookup only happens once per game.
+    Steam games use their own ``app_id``. Every other game is looked up on the
+    Steam store by name, accepting only confident (exact or distinctive-prefix)
+    title matches so ambiguous folder names can never pull in a wrong game.
+    Lookups are cached on disk per search term.
     """
     if game.app_id:
         return game.app_id
-    term = _steam_search_term(game)
-    key = term.lower()
+    terms = _steam_search_terms(game)
+    if not terms:
+        return None
     with _STEAM_APPID_LOCK:
         cache = _appid_cache()
-        if key not in cache:
-            cache[key] = _steam_store_search(term) or ""
-            _cache_appid(term, cache[key])
-        return cache[key] or None
+        for term in terms:
+            key = _STEAM_APPID_KEY_PREFIX + term.lower()
+            if key not in cache:
+                cache[key] = _steam_store_search(term) or ""
+                _cache_appid(term, cache[key])
+            if cache[key]:
+                return cache[key]
+    return None
 
 
 def _ensure_cache():

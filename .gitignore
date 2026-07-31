@@ -1,6 +1,7 @@
-# --- Local Only Stuff --- #
-.cache
+# --- Local Only / Python Stuff --- #
 __pycache__
+*.pyc
+
 
 # --- Build / Packaging --- #
 *.egg-info/
@@ -9,4 +10,3 @@ dist/
 
 # --- Development / Other --- #
 /tests
-requirements.txt
