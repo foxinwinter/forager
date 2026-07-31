@@ -9,7 +9,6 @@ from forager.ui.theme import C
 
 CARD_W = 232
 CARD_H = 348
-MIN_CARD_W = 120
 _RADIUS = C.RADIUS
 
 
@@ -23,6 +22,7 @@ class GameCard(QWidget):
         self._focused = False
         self._art: QPixmap | None = None
 
+        self.setFixedSize(CARD_W, CARD_H)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)

@@ -16,7 +16,7 @@ from forager.core.controller import ControllerPoller
 from forager.services.art import bytes_to_pixmap
 from forager.ui.theme import C
 from forager.ui.sidebar import Sidebar
-from forager.ui.game_card import GameCard, CARD_W, MIN_CARD_W
+from forager.ui.game_card import GameCard, CARD_W
 from forager.ui.gamepage import GamePage
 from forager.ui.settings import SettingsDialog
 
@@ -395,18 +395,13 @@ class MainWindow(QMainWindow):
 
         spacing = self._grid.spacing()
         cols = max(1, (viewport_w + spacing) // (CARD_W + spacing))
-        card_w = max(MIN_CARD_W, (viewport_w - spacing * (cols - 1)) // cols)
-        card_h = card_w * 3 // 2
-        remainder = max(0, viewport_w - (card_w * cols + spacing * (cols - 1)))
 
         old_cols = getattr(self, "_layout_cols", 0)
         for col in range(max(old_cols, cols)):
-            self._grid.setColumnStretch(col, 1 if col < cols else 0)
+            self._grid.setColumnStretch(col, 0)
         self._layout_cols = cols
 
         for i, card in enumerate(self._cards):
-            w = card_w + (remainder if i % cols == cols - 1 else 0)
-            card.setFixedSize(w, card_h)
             self._grid.addWidget(card, i // cols, i % cols)
 
     def _filtered_games(self) -> list[Game]:
