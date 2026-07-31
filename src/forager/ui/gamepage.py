@@ -1,6 +1,6 @@
 from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QPixmap, QFont, QColor, QPainter
+from PySide6.QtGui import QPixmap, QFont, QColor, QPainter, QPainterPath
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea,
     QFrame,
@@ -11,8 +11,8 @@ from forager.services import art
 from forager.ui.theme import C
 from forager.ui.icons import load_icon as load_bundled_icon
 
-_BANNER_MIN_H = 240
-_BANNER_MAX_H = 520
+_BANNER_H = 420
+_BLUR_DIVISOR = 12
 
 
 class _Banner(QWidget):
@@ -20,24 +20,12 @@ class _Banner(QWidget):
         super().__init__(parent)
         self._source: QPixmap | None = None
         self._overlay: QWidget | None = None
-        self._ratio = 2.0
-        self.setMinimumHeight(_BANNER_MIN_H)
-        self.setMaximumHeight(_BANNER_MAX_H)
+        self.setMinimumHeight(_BANNER_H)
+        self.setMaximumHeight(_BANNER_H)
 
     def set_source(self, pix: QPixmap | None):
         self._source = pix
-        if pix is not None and not pix.isNull():
-            self._ratio = pix.height() / pix.width()
-        self._fit_height()
         self.update()
-
-    def _fit_height(self):
-        if self._source is None or self.width() <= 0:
-            return
-        h = int(round(self.width() * self._ratio))
-        h = max(_BANNER_MIN_H, min(_BANNER_MAX_H, h))
-        if h != self.height():
-            self.setFixedHeight(h)
 
     def set_overlay(self, overlay: QWidget):
         self._overlay = overlay
@@ -46,21 +34,71 @@ class _Banner(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self._fit_height()
         if self._overlay is not None:
             self._overlay.setGeometry(self.rect())
+
+    def _backdrop(self, pix: QPixmap) -> QPixmap:
+        """Steam-style blurred fill: stretch the artwork to cover the banner
+        and soften it by downscaling then smoothing back up."""
+        small = pix.scaled(
+            max(1, pix.width() // _BLUR_DIVISOR),
+            max(1, pix.height() // _BLUR_DIVISOR),
+            Qt.AspectRatioMode.IgnoreAspectRatio,
+            Qt.TransformationMode.FastTransformation,
+        )
+        return small.scaled(
+            self.width(), self.height(),
+            Qt.AspectRatioMode.IgnoreAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
 
     def paintEvent(self, event):
         super().paintEvent(event)
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         radius = C.RADIUS
         p.setBrush(QColor(C.COLOR_3))
         p.setPen(Qt.PenStyle.NoPen)
         p.drawRoundedRect(self.rect(), radius, radius)
-        if self._source is not None:
-            pix = art.scale_crop(self._source, self.width(), self.height())
-            p.drawPixmap(0, 0, pix)
+        if self._source is None or self._source.isNull():
+            return
+
+        p.save()
+        p.setClipPath(self._clip_path())
+        self._paint_steam_style(p)
+        p.restore()
+
+    def _clip_path(self):
+        path = QPainterPath()
+        path.addRoundedRect(self.rect(), C.RADIUS, C.RADIUS)
+        return path
+
+    def _paint_steam_style(self, p: QPainter):
+        """Show the artwork sharp and whole, filled in like Steam does:
+
+        - Images too small or too big for the banner area keep their sharp
+          appearance (scaled down to fit, never upscaled, never cropped).
+        - Whatever space is left is covered by a blurred, stretched copy of
+          the artwork (Steam's ``library_hero_blur``/side-blur backdrop).
+        """
+        w, h = self.width(), self.height()
+        src = self._source
+
+        fitted = src
+        if src.width() > w or src.height() > h:
+            fitted = src.scaled(
+                w, h,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+
+        if fitted.width() < w or fitted.height() < h:
+            p.drawPixmap(0, 0, self._backdrop(src))
+
+        x = (w - fitted.width()) // 2
+        y = (h - fitted.height()) // 2
+        p.drawPixmap(x, y, fitted)
 
 
 class GamePage(QWidget):
