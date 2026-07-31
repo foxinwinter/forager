@@ -1,6 +1,9 @@
 from __future__ import annotations
 import hashlib
 import io
+import json
+import threading
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from PySide6.QtCore import Qt, QByteArray
@@ -20,6 +23,81 @@ STEAM_CACHE = steam_appcache_dir()
 ART_CACHE = art_cache_dir()
 BANNER_CACHE = banner_cache_dir()
 STEAM_CDN = "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{app_id}/{name}"
+STEAM_STORE_SEARCH = "https://store.steampowered.com/api/storesearch/?term={term}&l=english&cc=US"
+
+_STEAM_APPID_CACHE: dict[str, str] = {}
+_STEAM_APPID_LOCK = threading.Lock()
+_STEAM_APPID_FILE = ART_CACHE / "steam_app_ids.json"
+
+
+def _appid_cache() -> dict[str, str]:
+    global _STEAM_APPID_CACHE
+    if not _STEAM_APPID_CACHE:
+        try:
+            _STEAM_APPID_CACHE = json.loads(_STEAM_APPID_FILE.read_text("utf-8"))
+        except Exception:
+            _STEAM_APPID_CACHE = {}
+    return _STEAM_APPID_CACHE
+
+
+def _cache_appid(term: str, app_id: str | None) -> None:
+    cache = _appid_cache()
+    cache[term.lower()] = app_id or ""
+    try:
+        ART_CACHE.mkdir(parents=True, exist_ok=True)
+        _STEAM_APPID_FILE.write_text(json.dumps(cache))
+    except Exception:
+        pass
+
+
+def _steam_search_term(game: Game) -> str:
+    if game.search_names:
+        return game.search_names[0]
+    name = game.name
+    if "/" in name:
+        name = name.rsplit("/", 1)[-1]
+    return name.strip()
+
+
+def _steam_store_search(term: str) -> str | None:
+    url = STEAM_STORE_SEARCH.format(term=urllib.parse.quote(term))
+    req = urllib.request.Request(url, headers={"User-Agent": "forager/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return None
+    items = payload.get("items") or []
+    apps = [it for it in items if it.get("type") == "app"]
+    if not apps:
+        return None
+    exact = term.lower()
+    for it in apps:
+        if (it.get("name") or "").lower() == exact:
+            return str(it.get("id"))
+    for it in apps:
+        if it.get("exact_name_match"):
+            return str(it.get("id"))
+    return str(apps[0].get("id"))
+
+
+def steam_app_id(game: Game) -> str | None:
+    """Resolve the Steam App ID for a game.
+
+    Steam games use their own ``app_id``. Every other game (standalone,
+    DRM-free, Minecraft, ...) is looked up on the Steam store by title, and
+    the result is cached on disk so the lookup only happens once per game.
+    """
+    if game.app_id:
+        return game.app_id
+    term = _steam_search_term(game)
+    key = term.lower()
+    with _STEAM_APPID_LOCK:
+        cache = _appid_cache()
+        if key not in cache:
+            cache[key] = _steam_store_search(term) or ""
+            _cache_appid(term, cache[key])
+        return cache[key] or None
 
 
 def _ensure_cache():
@@ -85,8 +163,11 @@ def load_header_bytes(game: Game, allow_network: bool = True) -> bytes | None:
         return None
 
     data = None
-    if game.source == Source.STEAM and game.app_id:
-        data = fetch_header_bytes_for_steam(game.app_id)
+    app_id = steam_app_id(game)
+    if app_id:
+        data = _steam_cdn_bytes(app_id, ("header.jpg",))
+    if data is None and app_id:
+        data = fetch_header_bytes_for_steam(app_id)
     if data is None:
         data = fetch_header_bytes_for_game(game)
     if data:
@@ -101,8 +182,8 @@ def load_header(game: Game, allow_network: bool = True) -> QPixmap | None:
     return bytes_to_pixmap(data) if data else None
 
 
-def _steam_cdn_grid_bytes(app_id: str) -> bytes | None:
-    for name in ("library_600x900.jpg", "library_600x900_2x.jpg"):
+def _steam_cdn_bytes(app_id: str, names: tuple[str, ...]) -> bytes | None:
+    for name in names:
         url = STEAM_CDN.format(app_id=app_id, name=name)
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "forager/1.0"})
@@ -111,6 +192,10 @@ def _steam_cdn_grid_bytes(app_id: str) -> bytes | None:
         except Exception:
             continue
     return None
+
+
+def _steam_cdn_grid_bytes(app_id: str) -> bytes | None:
+    return _steam_cdn_bytes(app_id, ("library_600x900.jpg", "library_600x900_2x.jpg"))
 
 
 def _cached_grid_path(game: Game) -> Path | None:
@@ -142,10 +227,11 @@ def load_grid_bytes(game: Game, allow_network: bool = True) -> bytes | None:
         return None
 
     data = None
-    if game.source == Source.STEAM and game.app_id:
-        data = _steam_cdn_grid_bytes(game.app_id)
-    if data is None:
-        data = fetch_grid_bytes_for_steam(game.app_id) if game.source == Source.STEAM and game.app_id else None
+    app_id = steam_app_id(game)
+    if app_id:
+        data = _steam_cdn_grid_bytes(app_id)
+    if data is None and app_id:
+        data = fetch_grid_bytes_for_steam(app_id)
     if data is None:
         data = fetch_grid_bytes_for_game(game)
     if data:
@@ -184,8 +270,11 @@ def load_hero_bytes(game: Game, allow_network: bool = True) -> bytes | None:
         return None
 
     data = None
-    if game.source == Source.STEAM and game.app_id:
-        data = fetch_banner_bytes_for_steam(game.app_id)
+    app_id = steam_app_id(game)
+    if app_id:
+        data = _steam_cdn_bytes(app_id, ("library_hero.jpg", "library_hero_blur.jpg"))
+    if data is None and app_id:
+        data = fetch_banner_bytes_for_steam(app_id)
     if data is None:
         data = fetch_banner_bytes_for_game(game)
     if data:
