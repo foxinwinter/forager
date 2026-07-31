@@ -5,17 +5,20 @@ from PySide6.QtGui import QFont, QColor, QPainter, QIcon
 from PySide6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QMessageBox,
     QPushButton, QGridLayout, QScrollArea, QStackedWidget, QApplication,
+    QMenuBar,
 )
 
-from library.game import Game
-from library.scanner import scan_all
-from library.launcher import launch
-from library.controller import ControllerPoller
-from library.art import bytes_to_pixmap
-from ui.theme import C
-from ui.sidebar import Sidebar
-from ui.game_card import GameCard, CARD_W, CARD_H
-from ui.gamepage import GamePage
+from gamehub.core.game import Game
+from gamehub.core.config import settings
+from gamehub.library.scanner import scan_all
+from gamehub.library.launcher import launch
+from gamehub.core.controller import ControllerPoller
+from gamehub.services.art import bytes_to_pixmap
+from gamehub.ui.theme import C
+from gamehub.ui.sidebar import Sidebar
+from gamehub.ui.game_card import GameCard, CARD_W, CARD_H
+from gamehub.ui.gamepage import GamePage
+from gamehub.ui.settings import SettingsDialog
 
 
 class ScanWorker(QThread):
@@ -32,7 +35,7 @@ class ProtonUpdateWorker(QThread):
     done = Signal(bool, str)
 
     def run(self):
-        from library.proton import update_proton
+        from gamehub.library.proton import update_proton
 
         try:
             update_proton(self.message.emit)
@@ -52,8 +55,8 @@ class HeroSignals(QObject):
 
 
 def _art_job(games: list[Game], signals: ArtSignals, stop_event: threading.Event):
-    from library import art
-    from library.icon_provider import load_icon_bytes
+    from gamehub.services import art
+    from gamehub.library.icon_provider import load_icon_bytes
 
     for game in games:
         if stop_event.is_set():
@@ -69,7 +72,7 @@ def _art_job(games: list[Game], signals: ArtSignals, stop_event: threading.Event
 
 
 def _hero_job(game: Game, signals: HeroSignals, stop_event: threading.Event):
-    from library import art
+    from gamehub.services import art
 
     if stop_event.is_set():
         return
@@ -134,6 +137,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("forager")
         self.setMinimumSize(760, 480)
         self.resize(1100, 700)
+
+        self._build_menu_bar()
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -210,6 +215,41 @@ class MainWindow(QMainWindow):
         lay.addWidget(self._controller_hint)
 
         layout.addWidget(bar)
+
+    def _build_menu_bar(self):
+        bar = QMenuBar(self)
+        bar.setStyleSheet(
+            f"QMenuBar {{ background-color: {C.BG}; color: {C.TEXT}; }}"
+            f"QMenuBar::item {{ padding: 6px 12px; background: transparent; }}"
+            f"QMenuBar::item:selected {{ background-color: {C.COLOR_2}; }}"
+        )
+        menu = bar.addMenu("forager")
+        settings_action = menu.addAction("Settings…")
+        settings_action.triggered.connect(self._open_settings)
+        update_action = menu.addAction("Update Proton")
+        update_action.triggered.connect(self._update_proton)
+        menu.addSeparator()
+        quit_action = menu.addAction("Quit")
+        quit_action.triggered.connect(self.close)
+        self.setMenuBar(bar)
+
+    def _open_settings(self):
+        self._games_dir_before = str(settings.games_dir)
+        dialog = SettingsDialog(self)
+        dialog.update_proton_requested.connect(self._update_proton)
+        dialog.games_dir_changed.connect(self._reload_library)
+        if dialog.exec() == SettingsDialog.DialogCode.Accepted:
+            if dialog._games_dir_edit.text() != str(self._games_dir_before):
+                self._reload_library()
+            else:
+                self._status_show("Settings saved")
+
+    def _reload_library(self):
+        self._status_show("Rescanning library…")
+        self._art_stop.set()
+        self._hero_stop.set()
+        self._hero_done.clear()
+        self._load_games()
 
     def _nav_button(self, text: str) -> QPushButton:
         btn = QPushButton(text)
@@ -289,6 +329,8 @@ class MainWindow(QMainWindow):
         self._start_art_worker()
 
     def _start_art_worker(self):
+        self._art_stop.clear()
+        self._hero_stop.clear()
         self._art_signals = ArtSignals(self)
         self._art_signals.grid_ready.connect(self._on_grid_ready)
         self._art_signals.icon_ready.connect(self._on_icon_ready)
@@ -359,7 +401,7 @@ class MainWindow(QMainWindow):
         return out
 
     def _load_card_art(self):
-        from library import art
+        from gamehub.services import art
 
         for card in self._cards:
             card.set_art(art.load_grid(card.game, allow_network=False))

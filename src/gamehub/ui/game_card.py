@@ -3,9 +3,9 @@ from PySide6.QtCore import Qt, Signal, QRectF
 from PySide6.QtGui import QColor, QPen, QPainter, QPainterPath, QFont, QFontMetrics, QPixmap, QLinearGradient
 from PySide6.QtWidgets import QWidget
 
-from library.game import Game
-from library import art
-from ui.theme import C
+from gamehub.core.game import Game
+from gamehub.services import art
+from gamehub.ui.theme import C
 
 CARD_W = 232
 CARD_H = 348

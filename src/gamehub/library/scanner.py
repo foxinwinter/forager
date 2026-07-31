@@ -1,9 +1,8 @@
 from __future__ import annotations
 import re
 from pathlib import Path
-from library.game import Game, Source
-
-GAMES_DIR = Path("/nyaa/games")
+from gamehub.core.game import Game, Source
+from gamehub.utils.paths import games_dir
 
 
 def scan_all() -> list[Game]:
@@ -17,7 +16,7 @@ def scan_all() -> list[Game]:
 
 def _scan_steam() -> list[Game]:
     games: list[Game] = []
-    apps_dir = GAMES_DIR / "steam/steamapps"
+    apps_dir = games_dir() / "steam/steamapps"
     if not apps_dir.is_dir():
         return games
 
@@ -57,7 +56,7 @@ def _acf_val(text: str, key: str) -> str | None:
 
 def _scan_minecraft() -> list[Game]:
     games: list[Game] = []
-    mc_dir = GAMES_DIR / "minecraft"
+    mc_dir = games_dir() / "minecraft"
     if not mc_dir.is_dir():
         return games
 
@@ -79,7 +78,7 @@ def _scan_minecraft() -> list[Game]:
 
 def _scan_standalone() -> list[Game]:
     games: list[Game] = []
-    sd_dir = GAMES_DIR / "standalone"
+    sd_dir = games_dir() / "standalone"
     if not sd_dir.is_dir():
         return games
 

@@ -125,11 +125,6 @@ def fetch_header_bytes_for_steam(app_id: str) -> bytes | None:
     return _asset_bytes("headers", sgdb_id)
 
 
-def fetch_header_for_name(name: str) -> QPixmap | None:
-    data = _search_fetch("headers", name, "")
-    return _to_qpixmap(data) if data else None
-
-
 def _match_entry(results: list[dict], query: str, match_term: str) -> dict | None:
     if match_term:
         for entry in results:

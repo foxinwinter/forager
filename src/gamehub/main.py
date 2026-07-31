@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from app import ForagerApp
+from gamehub.app import ForagerApp
 import sys
 
 

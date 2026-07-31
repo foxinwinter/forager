@@ -7,9 +7,9 @@ from PySide6.QtWidgets import (
     QInputDialog, QMessageBox,
 )
 
-from library.game import Game, Source
-from library.icon_provider import load_icon
-from ui.theme import C
+from gamehub.core.game import Game, Source
+from gamehub.library.icon_provider import load_icon
+from gamehub.ui.theme import C
 
 _SIDEBAR_W = 240
 
@@ -234,7 +234,7 @@ class Sidebar(QWidget):
         layout.addWidget(panel)
 
     def _set_token(self):
-        from library.steamgriddb import get_api_key, set_api_key
+        from gamehub.library.steamgriddb import get_api_key, set_api_key
 
         current = get_api_key() or ""
         text, ok = QInputDialog.getText(

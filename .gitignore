@@ -2,6 +2,11 @@
 .cache
 __pycache__
 
+# --- Build / Packaging --- #
+*.egg-info/
+build/
+dist/
+
 # --- Development / Other --- #
 /tests
 requirements.txt

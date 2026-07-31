@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
 
-GAMES_DIR = Path("/nyaa/games")
+from gamehub.utils.paths import games_dir
 
 GENERIC_CONTAINERS = {
     "standalone", "series", "minecraft", "steam", "rpgmaker", "rpg",
@@ -56,11 +56,11 @@ class Game:
         matches. ``search_names`` always wins when set.
         """
         if self.search_names:
-            return (list(self.search_names), self.name)
+            return (list(self.search_names), "")
         if self.source == Source.STEAM:
             return None
         try:
-            parts = self.path.resolve().relative_to(GAMES_DIR).parts
+            parts = self.path.resolve().relative_to(games_dir()).parts
         except ValueError:
             return None
         parts = list(parts)

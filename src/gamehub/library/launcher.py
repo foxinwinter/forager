@@ -2,7 +2,7 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-from library.game import Game, Source
+from gamehub.core.game import Game, Source
 
 
 def launch(game: Game) -> None:
@@ -38,7 +38,7 @@ def _launch_standalone(game: Game) -> None:
     if not exe:
         return
     if exe.suffix == ".exe":
-        from library import proton
+        from gamehub.library import proton
 
         proton.launch_exe(game.path, exe)
     else:

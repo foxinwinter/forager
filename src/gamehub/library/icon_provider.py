@@ -3,13 +3,14 @@ import hashlib
 from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap, QImage
-from library.game import Game, Source
-from library.steamgriddb import (
-    fetch_icon_bytes_for_steam, fetch_icon_bytes_for_name,
+from gamehub.core.game import Game, Source
+from gamehub.library.steamgriddb import (
+    fetch_icon_bytes_for_steam, fetch_icon_bytes_for_game,
 )
+from gamehub.utils.paths import icon_cache_dir, steam_appcache_dir
 
-STEAM_CACHE = Path.home() / ".local/share/Steam/appcache/librarycache"
-ICON_CACHE = Path("/nyaa/games/.cache/icons")
+STEAM_CACHE = steam_appcache_dir()
+ICON_CACHE = icon_cache_dir()
 
 
 def _ensure_cache():
@@ -44,13 +45,8 @@ def load_icon_bytes(game: Game, allow_network: bool = True) -> bytes | None:
     data = None
     if game.source == Source.STEAM and game.app_id:
         data = fetch_icon_bytes_for_steam(game.app_id)
-    if data is None and game.search_names:
-        for alt in game.search_names:
-            data = fetch_icon_bytes_for_name(alt)
-            if data:
-                break
     if data is None:
-        data = fetch_icon_bytes_for_name(game.name)
+        data = fetch_icon_bytes_for_game(game)
     if data:
         _save_icon_bytes(game, data)
     return data
@@ -67,7 +63,7 @@ def load_icon(game: Game, allow_network: bool = True) -> QPixmap | None:
     if pix is None:
         pix = _load_game_icon_direct(game)
     if pix is None and allow_network:
-        from library.art import bytes_to_pixmap
+        from gamehub.services.art import bytes_to_pixmap
 
         data = load_icon_bytes(game, True)
         if data:
@@ -80,9 +76,13 @@ def load_icon(game: Game, allow_network: bool = True) -> QPixmap | None:
 
 
 def _pixmap_to_bytes(pix: QPixmap) -> bytes | None:
-    buf = bytearray()
+    from PySide6.QtCore import QBuffer
+
+    buf = QBuffer()
+    if not buf.open(QBuffer.OpenModeFlag.WriteOnly):
+        return None
     if pix.save(buf, "PNG"):
-        return bytes(buf)
+        return bytes(buf.data())
     return None
 
 

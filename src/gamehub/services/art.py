@@ -5,16 +5,17 @@ import urllib.request
 from pathlib import Path
 from PySide6.QtCore import Qt, QByteArray
 from PySide6.QtGui import QPixmap, QImage, QPainter, QColor, QFont, QFontMetrics
-from library.game import Game, Source
-from library.steamgriddb import (
-    fetch_header_bytes_for_steam, fetch_header_bytes_for_name,
+from gamehub.core.game import Game, Source
+from gamehub.library.steamgriddb import (
+    fetch_header_bytes_for_steam,
     fetch_grid_bytes_for_steam, fetch_grid_bytes_for_game,
     fetch_header_bytes_for_game,
 )
-from library.icon_provider import load_icon
+from gamehub.library.icon_provider import load_icon
+from gamehub.utils.paths import art_cache_dir, steam_appcache_dir
 
-STEAM_CACHE = Path.home() / ".local/share/Steam/appcache/librarycache"
-ART_CACHE = Path("/nyaa/games/.cache/art")
+STEAM_CACHE = steam_appcache_dir()
+ART_CACHE = art_cache_dir()
 STEAM_CDN = "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{app_id}/{name}"
 
 
@@ -142,13 +143,8 @@ def load_grid_bytes(game: Game, allow_network: bool = True) -> bytes | None:
         data = _steam_cdn_grid_bytes(game.app_id)
     if data is None:
         data = fetch_grid_bytes_for_steam(game.app_id) if game.source == Source.STEAM and game.app_id else None
-    if data is None and game.search_names:
-        for alt in game.search_names:
-            data = fetch_grid_bytes_for_name(alt)
-            if data:
-                break
     if data is None:
-        data = fetch_grid_bytes_for_name(game.name)
+        data = fetch_grid_bytes_for_game(game)
     if data:
         _ensure_cache()
         key = _cache_key(game.app_id or game.name)
