@@ -1,0 +1,8 @@
+# --- Local Only Stuff --- #
+.cache
+__pycache__
+
+# --- Development / Other --- #
+/tests
+requirements.txt
+run.sh

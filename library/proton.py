@@ -1,0 +1,194 @@
+from __future__ import annotations
+import os
+import re
+import shutil
+import subprocess
+import tempfile
+import urllib.request
+import zipfile
+from pathlib import Path
+
+RUNTIME_DIR = Path("/nyaa/games/.runtime")
+PROTON_DIR = RUNTIME_DIR / "proton"
+RTP_DIR = RUNTIME_DIR / "rtp"
+RTP_PREFIX = PROTON_DIR / "rtp"
+DEFAULT_PREFIX = PROTON_DIR / "default"
+STEAM_CLIENT_INSTALL = Path("/home/fox/.local/share/Steam")
+
+PROTON_APPID = "1493710"
+PROTON_DEPOTS = ("1493711", "4862111")
+DEPOTDL_URL = "https://github.com/SteamRE/DepotDownloader/releases/download/DepotDownloader_3.4.0/DepotDownloader-linux-x64.zip"
+DEPOTDL_DIR = RUNTIME_DIR / "depotdownloader"
+STAGING_DIR = RUNTIME_DIR / "proton.new"
+BACKUP_DIR = RUNTIME_DIR / "proton.old"
+
+_RTP_RE = re.compile(r"^\s*rtp\s*=\s*(.+)$", re.IGNORECASE | re.MULTILINE)
+_RTP_KEY = r"HKLM\Software\Wow6432Node\Enterbrain\RGSS3\RTP"
+_RTP_MARKER = ".rtp-done"
+
+
+def proton_bin() -> Path:
+    return PROTON_DIR / "proton"
+
+
+def proton_version() -> str | None:
+    version_file = PROTON_DIR / "version"
+    if version_file.is_file():
+        try:
+            return version_file.read_text("utf-8", errors="replace").strip()
+        except OSError:
+            return None
+    return None
+
+
+def needs_rtp(game_dir: Path) -> bool:
+    ini = game_dir / "Game.ini"
+    if not ini.is_file():
+        return False
+    try:
+        text = ini.read_text("utf-8", errors="replace")
+    except OSError:
+        return False
+    return _RTP_RE.search(text) is not None
+
+
+def _proton_env(prefix: Path) -> dict[str, str]:
+    env = os.environ.copy()
+    env["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = str(STEAM_CLIENT_INSTALL)
+    env["STEAM_COMPAT_DATA_PATH"] = str(prefix)
+    env["WINEDEBUG"] = "-all"
+    return env
+
+
+def ensure_rtp() -> None:
+    if not RTP_DIR.is_dir():
+        return
+    marker = RTP_PREFIX / _RTP_MARKER
+    if marker.exists():
+        return
+    RTP_PREFIX.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        [str(proton_bin()), "run", "reg", "add", _RTP_KEY, "/v", "RPGVXAce", "/d", r"C:\rtp", "/f"],
+        env=_proton_env(RTP_PREFIX),
+        check=True,
+    )
+    drive_c = RTP_PREFIX / "pfx" / "drive_c"
+    drive_c.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(RTP_DIR, drive_c / "rtp", dirs_exist_ok=True)
+    marker.touch()
+
+
+def launch_exe(game_dir: Path, exe: Path) -> subprocess.Popen:
+    if needs_rtp(game_dir):
+        ensure_rtp()
+        prefix = RTP_PREFIX
+    else:
+        prefix = DEFAULT_PREFIX
+    prefix.mkdir(parents=True, exist_ok=True)
+    return subprocess.Popen(
+        [str(proton_bin()), "run", str(exe)],
+        cwd=game_dir,
+        env=_proton_env(prefix),
+    )
+
+
+def depotdownloader_bin() -> Path:
+    return DEPOTDL_DIR / "DepotDownloader"
+
+
+def ensure_depotdownloader() -> None:
+    if depotdownloader_bin().is_file():
+        return
+    DEPOTDL_DIR.mkdir(parents=True, exist_ok=True)
+    with urllib.request.urlopen(DEPOTDL_URL, timeout=120) as resp, tempfile.NamedTemporaryFile(suffix=".zip", dir=RUNTIME_DIR) as tmp:
+        shutil.copyfileobj(resp, tmp)
+        tmp.flush()
+        with zipfile.ZipFile(tmp.name) as zf:
+            zf.extractall(DEPOTDL_DIR)
+    depotdownloader_bin().chmod(0o755)
+
+
+def _restore_symlinks(new_dir: Path, ref_dir: Path) -> None:
+    """Steampipe strips symlinks to 0-byte placeholders and mode bits;
+    restore them from a known-good install so the depot matches a real
+    Steam install."""
+    for root, dirs, files in os.walk(new_dir):
+        dirs[:] = [d for d in dirs if d != "__pycache__"]
+        for d in dirs:
+            rel = Path(root).relative_to(new_dir) / d
+            ref = ref_dir / rel
+            if ref.is_dir():
+                try:
+                    os.chmod(Path(root) / d, ref.stat().st_mode)
+                except OSError:
+                    pass
+        for name in files:
+            path = Path(root) / name
+            rel = path.relative_to(new_dir)
+            ref = ref_dir / rel
+            if path.is_symlink():
+                continue
+            if ref.is_symlink() and path.stat().st_size == 0:
+                path.unlink()
+                path.symlink_to(os.readlink(ref))
+                continue
+            if ref.exists():
+                try:
+                    os.chmod(path, ref.stat().st_mode)
+                except OSError:
+                    pass
+
+
+def update_proton(report=None) -> str | None:
+    def emit(msg: str) -> None:
+        if report is not None:
+            report(msg)
+
+    ensure_depotdownloader()
+
+    emit("Updating Proton...")
+    if STAGING_DIR.exists():
+        shutil.rmtree(STAGING_DIR)
+    STAGING_DIR.mkdir(parents=True, exist_ok=True)
+
+    for depot in PROTON_DEPOTS:
+        emit(f"Downloading Proton from Steam (depot {depot})...")
+        subprocess.run(
+            [
+                str(depotdownloader_bin()),
+                "-anonymous",
+                "-app", PROTON_APPID,
+                "-depot", depot,
+                "-dir", str(STAGING_DIR),
+            ],
+            check=True,
+        )
+    shutil.rmtree(STAGING_DIR / ".DepotDownloader", ignore_errors=True)
+
+    if not (STAGING_DIR / "proton").is_file():
+        raise RuntimeError("Downloaded Proton is missing its launcher script")
+
+    emit("Applying patches...")
+    _restore_symlinks(STAGING_DIR, PROTON_DIR)
+
+    prefixes = [PROTON_DIR / name for name in ("rtp", "default")]
+    for p in prefixes:
+        if p.exists():
+            p.rename(RUNTIME_DIR / f".prefix-{p.name}")
+
+    if BACKUP_DIR.exists():
+        shutil.rmtree(BACKUP_DIR)
+    if PROTON_DIR.exists():
+        PROTON_DIR.rename(BACKUP_DIR)
+    STAGING_DIR.rename(PROTON_DIR)
+    if BACKUP_DIR.exists():
+        shutil.rmtree(BACKUP_DIR)
+
+    for p in prefixes:
+        saved = RUNTIME_DIR / f".prefix-{p.name}"
+        if saved.exists():
+            saved.rename(PROTON_DIR / p.name)
+
+    version = proton_version()
+    emit(f"Proton updated ({version})")
+    return version
