@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 from forager.ui.theme import C
 from forager.ui.dialogs.settings_tabs import SettingsTab, _INPUT_QSS, _CHECK_QSS, _NOTE_QSS
 from forager.ui.dialogs.steam_login_worker import SteamLoginWorker
-from forager.ui.dialogs.steam_qr_dialog import SteamQrDialog
+from forager.ui.dialogs.steam_web_login_dialog import SteamWebLoginDialog, clear_web_cookies
 
 _PRIMARY_BTN_QSS = f"""
 QPushButton {{ background-color: {C.ACCENT_1}; color: {C.BG}; border: none;
@@ -60,15 +60,15 @@ class AccountTab(SettingsTab):
         self._steam_signin_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._steam_signin_btn.setStyleSheet(_SECONDARY_BTN_QSS)
         self._steam_signin_btn.clicked.connect(self._on_steam_signin)
-        self._steam_qr_btn = QPushButton("Sign in with QR")
-        self._steam_qr_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._steam_qr_btn.setStyleSheet(_PRIMARY_BTN_QSS)
-        self._steam_qr_btn.clicked.connect(self._on_steam_qr)
+        self._steam_web_btn = QPushButton("Sign in with Steam")
+        self._steam_web_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._steam_web_btn.setStyleSheet(_PRIMARY_BTN_QSS)
+        self._steam_web_btn.clicked.connect(self._on_steam_web)
         self._steam_signout_btn = QPushButton("Sign out")
         self._steam_signout_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._steam_signout_btn.setStyleSheet(_SECONDARY_BTN_QSS)
         self._steam_signout_btn.clicked.connect(self._on_steam_signout)
-        actions_layout.addWidget(self._steam_qr_btn)
+        actions_layout.addWidget(self._steam_web_btn)
         actions_layout.addWidget(self._steam_signin_btn)
         actions_layout.addWidget(self._steam_signout_btn)
         actions_layout.addStretch(1)
@@ -111,11 +111,13 @@ class AccountTab(SettingsTab):
         self._update_token_status()
 
         note = QLabel(
-            "Sign in with the Steam mobile app (QR code), or use username/password — "
-            "the password flow is how you sign in without a phone (Steam Guard codes "
-            "are asked for here when needed). Credentials and sessions live in your "
-            "system keyring / DepotDownloader's account store, never in plaintext. "
-            "Proton updates still use anonymous access."
+            "Sign in with the Steam login page (opens here) — Steam handles "
+            "password, Steam Guard codes and the mobile-app QR itself, so "
+            "signing in is as reliable as in your browser. Use the password "
+            "flow to also cache a DepotDownloader session for hands-free "
+            "downloads. Credentials and sessions live in your system keyring / "
+            "Steam's own session storage, never in plaintext. Proton updates "
+            "still use anonymous access."
         )
         note.setWordWrap(True)
         note.setStyleSheet(_NOTE_QSS)
@@ -130,21 +132,25 @@ class AccountTab(SettingsTab):
         user = steam.get_username()
         if user:
             method = steam.get_login_method()
-            if method == "qr":
+            if method == "web":
                 self._steam_status.setText(
-                    f"Signed in as {user} (QR session — game downloads are hands-free)."
+                    f"Signed in as {user} (Steam web session)."
+                )
+            elif method == "password":
+                self._steam_status.setText(
+                    f"Credentials stored for {user} — hands-free DepotDownloader session."
                 )
             else:
                 self._steam_status.setText(f"Credentials stored for {user}.")
         else:
             self._steam_status.setText("Not signed in.")
 
-    def _on_steam_qr(self):
-        dlg = getattr(self, "_qr_dialog", None)
+    def _on_steam_web(self):
+        dlg = getattr(self, "_web_dialog", None)
         if dlg is not None and dlg.isVisible():
             return
-        dlg = SteamQrDialog(self.window())
-        self._qr_dialog = dlg
+        dlg = SteamWebLoginDialog(self.window())
+        self._web_dialog = dlg
         dlg.finished.connect(lambda _r: self._update_steam_status())
         dlg.open()
 
@@ -193,6 +199,7 @@ class AccountTab(SettingsTab):
 
         steam.clear_credentials()
         steam.clear_session()
+        clear_web_cookies()
         self._steam_pass_edit.clear()
         self._update_steam_status()
 
@@ -224,7 +231,7 @@ class AccountTab(SettingsTab):
         self._save_token()
 
     def cancel_worker(self):
-        dlg = getattr(self, "_qr_dialog", None)
+        dlg = getattr(self, "_web_dialog", None)
         if dlg is not None:
             dlg.cancel()
         worker = getattr(self, "_steam_worker", None)

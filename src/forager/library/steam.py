@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import os
 import re
 import select
@@ -7,6 +8,7 @@ import shutil
 import subprocess
 import tempfile
 import threading
+import urllib.request
 from pathlib import Path
 
 from forager.library.proton import (
@@ -34,11 +36,7 @@ _GUARD_MARKERS = (
 )
 
 LOGIN_TIMEOUT = 180.0
-QR_TIMEOUT = 300.0
 
-_QR_HEADER = "use the steam mobile app to sign in with this qr code:"
-_QR_CHANGED = "the qr code has changed:"
-_QR_SUCCESS_RE = re.compile(r"-username\s+(\S+)\s+-remember-password\s+instead of\s+-qr")
 _SESSION_PROMPT_MARKER = "enter account password for"
 _TOKEN_REJECTED_MARKER = "access token was rejected"
 
@@ -70,7 +68,7 @@ def has_credentials() -> bool:
 
 
 def get_login_method() -> str | None:
-    """How the stored account signs in: "qr" or "password" (or None)."""
+    """How the stored account signs in: "web", "password" (or None)."""
     if _keyring is not None:
         try:
             method = _keyring.get_password(KEYRING_SERVICE, KEYRING_LOGIN_METHOD_KEY)
@@ -91,17 +89,45 @@ def set_credentials(username: str, password: str) -> None:
     _keyring.set_password(KEYRING_SERVICE, KEYRING_LOGIN_METHOD_KEY, "password")
 
 
-def set_qr_username(username: str) -> None:
-    """Store an account signed in via QR (refresh token lives in
-    DepotDownloader's account.config, not the keyring)."""
+def set_web_username(username: str) -> None:
+    """Store an account signed in via Steam's web login page (the session
+    itself lives in the webview's persistent cookie store)."""
     if _keyring is None:
         raise RuntimeError("keyring backend unavailable")
     _keyring.set_password(KEYRING_SERVICE, KEYRING_USERNAME_KEY, username)
-    _keyring.set_password(KEYRING_SERVICE, KEYRING_LOGIN_METHOD_KEY, "qr")
+    _keyring.set_password(KEYRING_SERVICE, KEYRING_LOGIN_METHOD_KEY, "web")
     try:
         _keyring.delete_password(KEYRING_SERVICE, KEYRING_PASSWORD_KEY)
     except Exception:
         pass
+
+
+def steamid_from_cookie(value: str) -> str | None:
+    """Extract the SteamID from a ``steamLoginSecure`` cookie value.
+
+    Steam's web session cookie is ``<steamid>||<digest>``.
+    """
+    if not value:
+        return None
+    first = value.split("||", 1)[0]
+    return first if first.isdigit() else None
+
+
+def account_name_from_steamid(steamid: str) -> str | None:
+    """Resolve a SteamID to the account's persona name via the public
+    ``steamcommunity.com`` profile XML (no auth or API key required)."""
+    url = f"https://steamcommunity.com/profiles/{steamid}/?xml=1"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "forager"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = resp.read(1 << 20).decode("utf-8", "replace")
+    except Exception:
+        return None
+    m = re.search(r"<steamID>(.*?)</steamID>", data, re.S)
+    if not m:
+        return None
+    name = html.unescape(re.sub(r"<[^>]+>", "", m.group(1))).strip()
+    return name or None
 
 
 def clear_credentials() -> None:
@@ -137,18 +163,6 @@ def _login_cmd(username: str, password: str, remember: bool, download_dir: Path)
     if remember:
         cmd.append("-remember-password")
     return cmd
-
-
-def _qr_cmd(download_dir: Path) -> list[str]:
-    return [
-        str(depotdownloader_bin()),
-        "-app", PROTON_APPID,
-        "-depot", PROTON_DEPOTS[0],
-        "-manifest-only",
-        "-dir", str(download_dir),
-        "-qr",
-        "-remember-password",
-    ]
 
 
 def _session_cmd(username: str, download_dir: Path) -> list[str]:
@@ -314,75 +328,6 @@ def _run_dd(cmd: list[str], timeout: float, cancel_event=None, on_line=None):
     return log, buf, proc.returncode, cancelled
 
 
-def _is_qr_art_line(line: str) -> bool:
-    return bool(line) and all(c == " " or 0x2580 <= ord(c) <= 0x259F for c in line)
-
-
-def parse_qr_art(lines) -> list[list[bool]]:
-    """Convert DepotDownloader's ASCII-art QR lines into a bool grid (dark).
-
-    QRCoder renders each module as two characters (``██`` or two spaces), so
-    character pairs are collapsed into single cells.
-    """
-    grid: list[list[bool]] = []
-    for line in lines:
-        if not line:
-            continue
-        cells = [c != " " for c in line]
-        grid.append([cells[i] or cells[i + 1] for i in range(0, len(cells) - 1, 2)])
-    return grid
-
-
-def login_with_qr(qr_callback, cancel_event: threading.Event | None = None) -> tuple[bool, str]:
-    """Sign in via QR code scanned with the Steam mobile app.
-
-    ``qr_callback(art_lines)`` is called each time a QR code is printed
-    (initially, and again whenever Steam refreshes the challenge). Returns
-    ``(True, account_name)`` on success, or ``(False, reason)``.
-    """
-    scratch = Path(tempfile.mkdtemp(prefix="forager-qr-"))
-    collected: list[str] = []
-    collecting = False
-    result: list[str] = []
-
-    def on_line(line: str):
-        nonlocal collecting
-        lowered = line.lower()
-        if lowered.startswith(_QR_HEADER) or lowered.startswith(_QR_CHANGED):
-            if collected:
-                qr_callback(list(collected))
-                collected.clear()
-            collecting = True
-            return
-        if collecting:
-            if _is_qr_art_line(line):
-                collected.append(line)
-            else:
-                if collected:
-                    qr_callback(list(collected))
-                    collected.clear()
-                collecting = False
-        m = _QR_SUCCESS_RE.search(line)
-        if m:
-            result.append(m.group(1))
-
-    try:
-        log, tail, returncode, cancelled = _run_dd(
-            _qr_cmd(scratch), QR_TIMEOUT, cancel_event, on_line
-        )
-        if collecting and collected:
-            qr_callback(list(collected))
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
-
-    if result:
-        return True, result[0]
-    if cancelled:
-        return False, "Sign-in cancelled"
-    tail = (tail + "\n" + "\n".join(log[-10:])).lower()
-    return False, tail or f"DepotDownloader exited with code {returncode}"
-
-
 def verify_session(username: str, cancel_event: threading.Event | None = None) -> tuple[bool, str]:
     """Validate a previously stored session (refresh token) without a password.
 
@@ -402,9 +347,9 @@ def verify_session(username: str, cancel_event: threading.Event | None = None) -
     combined = "\n".join(log[-20:]) + "\n" + tail
     low = combined.lower()
     if _SESSION_PROMPT_MARKER in low:
-        return False, "No stored session for this account; sign in again (QR or password)."
+        return False, "No stored session for this account; sign in again (Steam login or password)."
     if _TOKEN_REJECTED_MARKER in low:
-        return False, "Stored session was rejected; sign in again (QR or password)."
+        return False, "Stored session was rejected; sign in again (Steam login or password)."
     if returncode == 0 and "unable to get steam3 credentials" not in low:
         return True, f"Signed in as {username}"
     return False, low or f"DepotDownloader exited with code {returncode}"
