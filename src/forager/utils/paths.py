@@ -47,7 +47,7 @@ def proton_dir() -> Path:
 
 
 def proton_prefix_dir() -> Path:
-    return proton_dir() / settings.proton_prefix_name
+    return proton_dir() / "files"
 
 
 def rtp_source_dir() -> Path:

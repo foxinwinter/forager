@@ -10,7 +10,6 @@ DEFAULTS = {
     "steam_appcache": str(Path.home() / ".local/share/Steam/appcache/librarycache"),
     "display_size": "medium",
     "proton": {
-        "prefix_name": "single",
         "features": {
             "rpgmaker_vxace_rtp": False,
         },
@@ -80,10 +79,6 @@ class Settings:
     @property
     def steam_appcache(self) -> Path:
         return Path(str(self._data.get("steam_appcache") or DEFAULTS["steam_appcache"])).expanduser()
-
-    @property
-    def proton_prefix_name(self) -> str:
-        return str(self._data.get("proton", {}).get("prefix_name") or "single")
 
     @property
     def proton_features(self) -> dict:
