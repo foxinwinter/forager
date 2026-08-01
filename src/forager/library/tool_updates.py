@@ -48,7 +48,7 @@ def installed_depotdl_tag() -> str | None:
 def _latest_depotdl_tag() -> str | None:
     req = urllib.request.Request(GITHUB_LATEST_URL, headers={"User-Agent": "forager"})
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.load(resp)
     except (OSError, ValueError):
         return None

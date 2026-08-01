@@ -1,6 +1,8 @@
 from __future__ import annotations
+import atexit
 import threading
-from PySide6.QtCore import Qt, QTimer
+from shiboken6 import isValid
+from PySide6.QtCore import Qt, QThread, QTimer
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QMessageBox,
@@ -22,9 +24,44 @@ from forager.ui.pages.downloads import DownloadsPage
 from forager.ui.widgets.controller_nav import GamepadNavigation
 from forager.ui.workers import (
     ScanWorker, ProtonUpdateWorker, TestDownloadWorker,
-    ToolUpdateCheckWorker, ToolUpdateWorker,
+    ToolUpdateWorker,
     ArtSignals, HeroSignals, _art_job, _hero_job,
+    ToolUpdateSignals, _tool_update_check_job,
 )
+
+_WORKER_ATTRS = (
+    "_worker", "_test_worker", "_update_runner", "_proton_worker",
+)
+
+_orphaned_workers: set = set()
+
+
+def _orphan_worker(worker: QThread) -> None:
+    """Detach a worker so it can finish on its own without crashing at exit.
+
+    A QThread must never be destroyed while its thread is still running (Qt
+    warns and aborts). Workers doing blocking network I/O can't always be
+    stopped synchronously, so keep them alive until ``finished`` instead of
+    letting the window teardown destroy them mid-run.
+    """
+    if worker in _orphaned_workers:
+        return
+    if not isValid(worker):
+        return
+    worker.setParent(None)
+    _orphaned_workers.add(worker)
+    worker.finished.connect(lambda: _orphaned_workers.discard(worker))
+
+
+def _drain_orphans() -> None:
+    """Wait for detached workers at process exit so their QThread objects are
+    never destroyed while still running (Qt aborts on that)."""
+    for worker in list(_orphaned_workers):
+        if isValid(worker) and worker.isRunning():
+            worker.wait(35000)
+
+
+atexit.register(_drain_orphans)
 
 
 class MainWindow(QMainWindow):
@@ -33,6 +70,7 @@ class MainWindow(QMainWindow):
         self._games: list[Game] = []
         self._card_w, self._card_h = resolve_card_size(settings.get("display_size", "medium"))
         self._controller = ControllerPoller(self)
+        self._closed = False
         self._scan_done = False
         self._hero_done: set = set()
         self._art_stop = threading.Event()
@@ -140,6 +178,8 @@ class MainWindow(QMainWindow):
     # -- game loading --------------------------------------------------
 
     def _load_games(self):
+        if getattr(self, "_closed", False):
+            return
         self._scan_done = False
         self._worker = ScanWorker()
         self._worker.done.connect(self._on_games_scanned)
@@ -290,10 +330,17 @@ class MainWindow(QMainWindow):
     # -- tool updates ------------------------------------------------
 
     def _check_tool_updates(self):
+        if getattr(self, "_closed", False):
+            return
         self._tool_updates: list = []
-        self._update_check_worker = ToolUpdateCheckWorker(self)
-        self._update_check_worker.done.connect(self._on_tool_check_done)
-        self._update_check_worker.start()
+        self._tool_check_signals = ToolUpdateSignals(self)
+        self._tool_check_signals.done.connect(self._on_tool_check_done)
+        self._tool_check_stop = threading.Event()
+        threading.Thread(
+            target=_tool_update_check_job,
+            args=(self._tool_check_signals, self._tool_check_stop),
+            daemon=True,
+        ).start()
 
     def _on_tool_check_done(self, updates: list):
         self._tool_updates = updates
@@ -327,19 +374,26 @@ class MainWindow(QMainWindow):
     # -- controller ----------------------------------------------------
 
     def closeEvent(self, event):
+        self._closed = True
         self._shutdown_threads()
         super().closeEvent(event)
 
     def _shutdown_threads(self):
         self._nav.shutdown()
-        worker = getattr(self, "_worker", None)
-        if worker is not None and worker.isRunning():
-            worker.requestInterruption()
-            worker.wait(3000)
-        test_worker = getattr(self, "_test_worker", None)
-        if test_worker is not None and test_worker.isRunning():
-            test_worker.requestInterruption()
-            test_worker.wait(3000)
+        cancel = getattr(self, "_proton_cancel", None)
+        if cancel is not None:
+            cancel.set()
+        stop = getattr(self, "_tool_check_stop", None)
+        if stop is not None:
+            stop.set()
+        for name in _WORKER_ATTRS:
+            worker = getattr(self, name, None)
+            if worker is None or not isValid(worker):
+                continue
+            if worker.isRunning():
+                worker.requestInterruption()
+                if not worker.wait(3000):
+                    _orphan_worker(worker)
         self._art_stop.set()
         self._hero_stop.set()
 

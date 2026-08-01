@@ -81,19 +81,21 @@ class TestDownloadWorker(QThread):
         self.done.emit(True, "Test")
 
 
-class ToolUpdateCheckWorker(QThread):
+class ToolUpdateSignals(QObject):
     done = Signal(list)
 
-    def run(self):
-        from forager.library.tool_updates import check_tool_updates
 
-        if self.isInterruptionRequested():
-            return
-        try:
-            updates = check_tool_updates()
-        except Exception:
-            updates = []
-        self.done.emit(updates)
+def _tool_update_check_job(signals: ToolUpdateSignals, stop_event: threading.Event):
+    from forager.library.tool_updates import check_tool_updates
+
+    if stop_event.is_set():
+        return
+    try:
+        updates = check_tool_updates()
+    except Exception:
+        updates = []
+    if not stop_event.is_set():
+        signals.done.emit(updates)
 
 
 class ToolUpdateWorker(QThread):

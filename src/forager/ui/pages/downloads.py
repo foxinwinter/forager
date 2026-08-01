@@ -204,7 +204,9 @@ class _Banner(QWidget):
             painter.setOpacity(1.0)
 
         fade = QLinearGradient(0, 0, w, 0)
-        fade.setColorAt(0.15, QColor(C.COLOR_2).withAlpha(0))
+        transparent = QColor(C.COLOR_2)
+        transparent.setAlpha(0)
+        fade.setColorAt(0.15, transparent)
         fade.setColorAt(0.90, QColor(C.COLOR_2))
         painter.fillRect(0, 0, w, h, fade)
         painter.end()
