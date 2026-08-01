@@ -13,6 +13,11 @@ A Steam-style game launcher for your local game library.
   Proton prefix. Add extras to the prefix (e.g. the RPG Maker VX Ace RTP) from
   the Settings dialog.
 
+## Roadmap
+
+See [roadmap.md](roadmap.md) for the plan towards `v1.0.0` (full Steam library,
+Steam downloads, store webview, torrenting, Steam achievements, Epic Games, GOG).
+
 ## Layout
 
 Your game library folder is expected to look like:
