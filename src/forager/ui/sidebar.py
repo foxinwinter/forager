@@ -10,6 +10,7 @@ from forager.core.game import Game
 from forager.library.icon_provider import load_icon
 from forager.ui.theme import C
 from forager.ui.icons import load_icon as load_bundled_icon
+from forager.ui.downloads import DownloadBox
 
 _SIDEBAR_W = 240
 
@@ -17,6 +18,7 @@ _SIDEBAR_W = 240
 class Sidebar(QWidget):
     game_selected = Signal(object)
     search_changed = Signal(str)
+    download_clicked = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -32,6 +34,7 @@ class Sidebar(QWidget):
 
         self._build_search(layout)
         self._build_list(layout)
+        self._build_download_box(layout)
         self._build_user_panel(layout)
 
     def _build_search(self, layout):
@@ -92,6 +95,20 @@ class Sidebar(QWidget):
         game: Game | None = item.data(Qt.ItemDataRole.UserRole)
         if game is not None:
             self.game_selected.emit(game)
+
+    def _build_download_box(self, layout):
+        self._download_box = DownloadBox()
+        self._download_box.clicked.connect(self.download_clicked)
+        layout.addWidget(self._download_box)
+
+    def begin_download(self, name: str) -> None:
+        self._download_box.begin(name)
+
+    def set_download_progress(self, progress) -> None:
+        self._download_box.set_progress(progress)
+
+    def hide_download(self) -> None:
+        self._download_box.hide_download()
 
     def _build_user_panel(self, layout):
         panel = QFrame()

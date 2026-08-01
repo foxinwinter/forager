@@ -18,9 +18,11 @@ from forager.ui.titlebar import TitleBar
 from forager.ui.game_grid import GameGrid
 from forager.ui.gamepage import GamePage
 from forager.ui.settings import SettingsDialog, resolve_card_size
+from forager.ui.downloads import DownloadsPage
 from forager.ui.controller_nav import GamepadNavigation
 from forager.ui.workers import (
-    ScanWorker, ProtonUpdateWorker, ArtSignals, HeroSignals, _art_job, _hero_job,
+    ScanWorker, ProtonUpdateWorker, TestDownloadWorker,
+    ArtSignals, HeroSignals, _art_job, _hero_job,
 )
 
 
@@ -63,6 +65,7 @@ class MainWindow(QMainWindow):
         self._titlebar = TitleBar()
         self._titlebar.settings_requested.connect(self._open_settings)
         self._titlebar.update_proton_requested.connect(self._update_proton)
+        self._titlebar.test_download_requested.connect(self._test_download)
         self._titlebar.back_requested.connect(self._show_home)
         right_layout.addWidget(self._titlebar)
 
@@ -79,8 +82,13 @@ class MainWindow(QMainWindow):
         self._gamepage = GamePage()
         self._content.addWidget(self._gamepage)
 
+        self._downloads_page = DownloadsPage()
+        self._content.addWidget(self._downloads_page)
+
         self._sidebar.game_selected.connect(self._open_game)
         self._sidebar.search_changed.connect(self._on_search_changed)
+        self._sidebar.download_clicked.connect(self._show_downloads)
+        self._downloads_page.cancel_requested.connect(self._cancel_proton_update)
         self._gamepage.play.connect(self._launch_game)
         self._gamepage.back_requested.connect(self._show_home)
 
@@ -186,6 +194,10 @@ class MainWindow(QMainWindow):
         self._content.setCurrentWidget(self._home)
         self._titlebar.set_back_enabled(False)
 
+    def _show_downloads(self):
+        self._content.setCurrentWidget(self._downloads_page)
+        self._titlebar.set_back_enabled(True)
+
     def _open_game(self, game: Game):
         self._gamepage.set_game(game)
         self._content.setCurrentWidget(self._gamepage)
@@ -219,18 +231,55 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Launch Error", f"Failed to launch {game.name}:\n{e}")
 
     def _update_proton(self):
+        self._proton_cancel = threading.Event()
         self._status_show("Updating Proton...")
-        self._proton_worker = ProtonUpdateWorker()
+        self._sidebar.begin_download("Proton Experimental")
+        self._downloads_page.begin("Proton Experimental")
+        self._proton_worker = ProtonUpdateWorker(self._proton_cancel, self)
         self._proton_worker.message.connect(self._status_show)
+        self._proton_worker.message.connect(self._status_show)
+        self._proton_worker.progress.connect(self._on_download_progress)
         self._proton_worker.done.connect(self._on_proton_updated)
         self._proton_worker.start()
 
-    def _on_proton_updated(self, ok: bool, error: str):
+    def _test_download(self):
+        self._sidebar.begin_download("Test Download")
+        self._downloads_page.begin("Test Download")
+        self._test_worker = TestDownloadWorker(self)
+        self._test_worker.progress.connect(self._on_download_progress)
+        self._test_worker.done.connect(self._on_test_downloaded)
+        self._test_worker.start()
+
+    def _on_test_downloaded(self, ok: bool, result: str):
+        self._sidebar.hide_download()
+        if ok:
+            self._status_show("Test download complete")
+            self._downloads_page.complete(result)
+        else:
+            self._status_show("Test download cancelled")
+            self._downloads_page.cancelled()
+
+    def _cancel_proton_update(self):
+        cancel = getattr(self, "_proton_cancel", None)
+        if cancel is not None:
+            cancel.set()
+
+    def _on_download_progress(self, progress):
+        self._sidebar.set_download_progress(progress)
+        self._downloads_page.set_progress(progress)
+
+    def _on_proton_updated(self, ok: bool, result: str):
+        self._sidebar.hide_download()
         if ok:
             self._status_show("Proton updated")
+            self._downloads_page.complete(result)
+        elif result == "Download cancelled":
+            self._status_show("Proton update cancelled")
+            self._downloads_page.cancelled()
         else:
             self._status_show("Proton update failed")
-            QMessageBox.warning(self, "Proton Update Failed", error)
+            self._downloads_page.failed(result)
+            QMessageBox.warning(self, "Proton Update Failed", result)
 
     def _status_show(self, text: str):
         self.statusBar().showMessage(text, 5000)
@@ -247,6 +296,10 @@ class MainWindow(QMainWindow):
         if worker is not None and worker.isRunning():
             worker.requestInterruption()
             worker.wait(3000)
+        test_worker = getattr(self, "_test_worker", None)
+        if test_worker is not None and test_worker.isRunning():
+            test_worker.requestInterruption()
+            test_worker.wait(3000)
         self._art_stop.set()
         self._hero_stop.set()
 
