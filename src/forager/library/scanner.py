@@ -4,6 +4,17 @@ from pathlib import Path
 from forager.core.game import Game, Source
 from forager.utils.paths import games_dir
 
+# Steam app IDs that are tools/runtimes rather than games (never shown in
+# the library). Proton Experimental is the big one; the Linux runtime
+# containers and SteamVR are included so they can't sneak in either.
+STEAM_TOOL_APP_IDS = {
+    "1493710",  # Proton Experimental
+    "250820",   # SteamVR
+    "1070560",  # Steam Linux Runtime
+    "1391110",  # Steam Linux Runtime - Soldier
+    "1628350",  # Steam Linux Runtime - Sniper
+}
+
 
 def scan_all() -> list[Game]:
     seen: set[Game] = set()
@@ -22,6 +33,8 @@ def _scan_steam() -> list[Game]:
 
     for acf in sorted(apps_dir.glob("appmanifest_*.acf")):
         app_id, name = _parse_acf(acf)
+        if app_id in STEAM_TOOL_APP_IDS:
+            continue
         if app_id and name:
             games.append(
                 Game(
