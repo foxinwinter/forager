@@ -1,19 +1,23 @@
 """Steam-style hero banner for the game page."""
 from __future__ import annotations
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QRect, QRectF
 from PySide6.QtGui import QPixmap, QColor, QPainter, QPainterPath
 from PySide6.QtWidgets import QWidget
 
 from forager.ui.theme import C
 
 _BANNER_H = 420
+_BLUR_DIVISOR = 12
 
 
 class Banner(QWidget):
     """Wide hero image with the Play-overlay area on top.
 
-    The source pixmap is never modified: it is drawn stretched to cover the
-    whole banner widget at paint time.
+    The source pixmap is never modified or cropped vertically: it is scaled
+    proportionally to the banner height so the full art (including its bottom
+    edge) always stays visible. Sources wider than the banner only have their
+    horizontal overflow centre-cropped; narrower sources are fitted with a
+    blurred backdrop filling the side space.
     """
 
     def __init__(self, parent=None):
@@ -42,17 +46,48 @@ class Banner(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        radius = C.RADIUS
-        p.setBrush(QColor(C.COLOR_3))
+        p.setBrush(QColor(C.COLOR_1))
         p.setPen(Qt.PenStyle.NoPen)
-        p.drawRoundedRect(self.rect(), radius, radius)
+        p.drawRoundedRect(self.rect(), C.RADIUS, C.RADIUS)
         if self._source is None or self._source.isNull():
             return
 
         p.save()
         p.setClipPath(self._clip_path())
-        p.drawPixmap(self.rect(), self._source)
+        self._paint_art(p)
         p.restore()
+
+    def _paint_art(self, p: QPainter):
+        w, h = self.width(), self.height()
+        src = self._source
+        scaled_w = src.width() * h / src.height()
+        if scaled_w >= w:
+            # Fills the height; only horizontal overflow is centre-cropped, so
+            # the bottom of the art is always visible.
+            src_w = w * src.height() / h
+            sx = (src.width() - src_w) / 2
+            p.drawPixmap(QRectF(0, 0, w, h), src,
+                         QRectF(sx, 0, src_w, src.height()))
+            return
+        # Narrower than the banner: show the whole art fitted to the height,
+        # with a blurred backdrop filling the side space.
+        p.drawPixmap(0, 0, self._backdrop(src))
+        x = (w - scaled_w) / 2
+        p.drawPixmap(QRectF(x, 0, scaled_w, h), src,
+                     QRectF(0, 0, src.width(), src.height()))
+
+    def _backdrop(self, pix: QPixmap) -> QPixmap:
+        small = pix.scaled(
+            max(1, pix.width() // _BLUR_DIVISOR),
+            max(1, pix.height() // _BLUR_DIVISOR),
+            Qt.AspectRatioMode.IgnoreAspectRatio,
+            Qt.TransformationMode.FastTransformation,
+        )
+        return small.scaled(
+            self.width(), self.height(),
+            Qt.AspectRatioMode.IgnoreAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
 
     def _clip_path(self):
         path = QPainterPath()
