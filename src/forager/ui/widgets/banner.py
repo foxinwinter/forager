@@ -13,22 +13,25 @@ _BLUR_DIVISOR = 12
 class Banner(QWidget):
     """Wide hero image with the Play-overlay area on top.
 
-    The source pixmap is never modified or cropped vertically: it is scaled
-    proportionally to the banner height so the full art (including its bottom
-    edge) always stays visible. Sources wider than the banner only have their
-    horizontal overflow centre-cropped; narrower sources are fitted with a
-    blurred backdrop filling the side space.
+    The source pixmap is never modified. Sources wider than the banner fill the
+    full height with only their horizontal overflow centre-cropped, so the
+    bottom of the art always stays visible. Narrower sources fill the banner
+    edge-to-edge by cropping only their top overflow, keeping the art's bottom
+    visible. When ``fit`` is set, narrower sources are instead shown whole,
+    fitted to the height with a blurred backdrop filling the side space.
     """
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._source: QPixmap | None = None
+        self._fit = False
         self._overlay: QWidget | None = None
         self.setMinimumHeight(_BANNER_H)
         self.setMaximumHeight(_BANNER_H)
 
-    def set_source(self, pix: QPixmap | None):
+    def set_source(self, pix: QPixmap | None, fit: bool = False):
         self._source = pix
+        self._fit = fit
         self.update()
 
     def set_overlay(self, overlay: QWidget):
@@ -69,12 +72,20 @@ class Banner(QWidget):
             p.drawPixmap(QRectF(0, 0, w, h), src,
                          QRectF(sx, 0, src_w, src.height()))
             return
-        # Narrower than the banner: show the whole art fitted to the height,
-        # with a blurred backdrop filling the side space.
-        p.drawPixmap(0, 0, self._backdrop(src))
-        x = (w - scaled_w) / 2
-        p.drawPixmap(QRectF(x, 0, scaled_w, h), src,
-                     QRectF(0, 0, src.width(), src.height()))
+        if self._fit:
+            # Show the whole art fitted to the height, with a blurred
+            # backdrop filling the side space.
+            p.drawPixmap(0, 0, self._backdrop(src))
+            x = (w - scaled_w) / 2
+            p.drawPixmap(QRectF(x, 0, scaled_w, h), src,
+                         QRectF(0, 0, src.width(), src.height()))
+            return
+        # Narrower than the banner: fill edge-to-edge, cropping only the top
+        # overflow so the art's bottom edge always stays visible.
+        scale = w / src.width()
+        sy = src.height() - h / scale
+        p.drawPixmap(QRectF(0, 0, w, h), src,
+                     QRectF(0, sy, src.width(), h / scale))
 
     def _backdrop(self, pix: QPixmap) -> QPixmap:
         small = pix.scaled(
