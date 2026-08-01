@@ -289,7 +289,7 @@ class DownloadsPage(QWidget):
         stats.setContentsMargins(12, 4, 12, 0)
         stats.setSpacing(28)
         self._speed_stat = _StatItem("download", "Download speed", accent=True)
-        self._time_stat = _StatItem("box", "Time remaining")
+        self._time_stat = _StatItem("clock-rotate-right", "Time remaining")
         self._space_stat = _StatItem("floppy-disk", "Available space")
         for stat in (self._speed_stat, self._time_stat, self._space_stat):
             stats.addWidget(stat)
