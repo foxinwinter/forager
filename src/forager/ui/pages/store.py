@@ -12,27 +12,9 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout,
 )
 
-from forager.ui.theme import C
+from forager.ui.theme import C, TAB_QSS
 
 _STORES = ("Steam", "Epic Games", "GOG", "itch.io")
-
-_TAB_QSS = f"""
-QPushButton {{
-    background-color: {C.COLOR_3};
-    color: #a9a9a9;
-    border: none;
-    border-radius: {C.RADIUS}px;
-    padding: 6px 16px;
-    font-size: 14px;
-}}
-QPushButton:hover {{
-    background-color: {C.COLOR_4};
-}}
-QPushButton:checked {{
-    background-color: {C.COLOR_1};
-    color: #ffffff;
-}}
-"""
 
 
 class StorePage(QWidget):
@@ -69,7 +51,7 @@ class StorePage(QWidget):
             btn = QPushButton(name)
             btn.setCheckable(True)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet(_TAB_QSS)
+            btn.setStyleSheet(TAB_QSS)
             group.addButton(btn, index)
             bar_layout.addWidget(btn)
         self._tabs_group = group

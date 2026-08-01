@@ -29,6 +29,25 @@ class C:
     RADIUS = 8
 
 
+TAB_QSS = f"""
+QPushButton {{
+    background-color: {C.COLOR_3};
+    color: #a9a9a9;
+    border: none;
+    border-radius: {C.RADIUS}px;
+    padding: 6px 16px;
+    font-size: 14px;
+}}
+QPushButton:hover {{
+    background-color: {C.COLOR_4};
+}}
+QPushButton:checked {{
+    background-color: {C.COLOR_1};
+    color: #ffffff;
+}}
+"""
+
+
 def load() -> dict[str, str]:
     return {k: getattr(C, k) for k in dir(C) if k.isupper()}
 

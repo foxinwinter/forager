@@ -4,9 +4,10 @@ from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QPushButton, QApplication, QToolButton, QMenu,
+    QButtonGroup,
 )
 
-from forager.ui.theme import C
+from forager.ui.theme import C, TAB_QSS
 from forager.ui.icons import load_icon as load_bundled_icon
 
 
@@ -16,6 +17,8 @@ class TitleBar(QWidget):
     test_download_requested = Signal()
     run_updates_requested = Signal()
     back_requested = Signal()
+    store_tab_requested = Signal()
+    library_tab_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -60,6 +63,11 @@ class TitleBar(QWidget):
 
         lay.addStretch(1)
 
+        self._tabs = self._build_tabs()
+        lay.addWidget(self._tabs, 0, Qt.AlignmentFlag.AlignCenter)
+
+        lay.addStretch(1)
+
         self._update_pill = QPushButton()
         self._update_pill.setCursor(Qt.CursorShape.PointingHandCursor)
         self._update_pill.setStyleSheet(
@@ -77,6 +85,40 @@ class TitleBar(QWidget):
             f"color: {C.TEXT_DIM}; font-size: 11px; background: transparent; padding: 4px 8px;"
         )
         lay.addWidget(self._controller_hint)
+
+    def _build_tabs(self) -> QWidget:
+        bar = QWidget()
+        bar.setStyleSheet(
+            f"background-color: {C.COLOR_2}; border-radius: {C.RADIUS}px;"
+        )
+        lay = QHBoxLayout(bar)
+        lay.setContentsMargins(6, 6, 6, 6)
+        lay.setSpacing(6)
+
+        group = QButtonGroup(self)
+        group.setExclusive(True)
+        self._store_tab = self._tab_button("Store", group, self.store_tab_requested)
+        self._library_tab = self._tab_button("Library", group, self.library_tab_requested)
+        lay.addWidget(self._store_tab)
+        lay.addWidget(self._library_tab)
+        self._tabs_group = group
+        self._library_tab.setChecked(True)
+        return bar
+
+    def _tab_button(self, text: str, group: QButtonGroup, signal) -> QPushButton:
+        btn = QPushButton(text)
+        btn.setCheckable(True)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setStyleSheet(TAB_QSS)
+        btn.clicked.connect(signal)
+        group.addButton(btn)
+        return btn
+
+    def set_active_tab(self, name: str) -> None:
+        if name == "store":
+            self._store_tab.setChecked(True)
+        else:
+            self._library_tab.setChecked(True)
 
     def _nav_button(self, icon_name: str) -> QPushButton:
         btn = QPushButton()

@@ -108,6 +108,8 @@ class MainWindow(QMainWindow):
         self._titlebar.update_proton_requested.connect(self._update_proton)
         self._titlebar.test_download_requested.connect(self._test_download)
         self._titlebar.back_requested.connect(self._show_home)
+        self._titlebar.store_tab_requested.connect(self._show_store)
+        self._titlebar.library_tab_requested.connect(self._show_home)
         right_layout.addWidget(self._titlebar)
 
         self._content = QStackedWidget()
@@ -132,7 +134,6 @@ class MainWindow(QMainWindow):
         self._sidebar.game_selected.connect(self._open_game)
         self._sidebar.search_changed.connect(self._on_search_changed)
         self._sidebar.download_clicked.connect(self._show_downloads)
-        self._sidebar.store_clicked.connect(self._show_store)
         self._downloads_page.cancel_requested.connect(self._cancel_proton_update)
         self._titlebar.run_updates_requested.connect(self._run_tool_updates)
         self._gamepage.play.connect(self._launch_game)
@@ -241,21 +242,23 @@ class MainWindow(QMainWindow):
     def _show_home(self):
         self._content.setCurrentWidget(self._home)
         self._titlebar.set_back_enabled(False)
-        self._sidebar.set_store_active(False)
+        self._titlebar.set_active_tab("library")
 
     def _show_store(self):
         self._content.setCurrentWidget(self._store_page)
         self._titlebar.set_back_enabled(True)
-        self._sidebar.set_store_active(True)
+        self._titlebar.set_active_tab("store")
 
     def _show_downloads(self):
         self._content.setCurrentWidget(self._downloads_page)
         self._titlebar.set_back_enabled(True)
+        self._titlebar.set_active_tab("library")
 
     def _open_game(self, game: Game):
         self._gamepage.set_game(game)
         self._content.setCurrentWidget(self._gamepage)
         self._titlebar.set_back_enabled(True)
+        self._titlebar.set_active_tab("library")
         self._load_hero_async(game)
 
     def _load_hero_async(self, game: Game):
