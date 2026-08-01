@@ -3,13 +3,13 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QCheckBox, QFormLayout, QInputDialog,
+    QPushButton, QFormLayout,
 )
 
 from forager.ui.theme import C
-from forager.ui.dialogs.settings_tabs import SettingsTab, _INPUT_QSS, _CHECK_QSS, _NOTE_QSS
-from forager.ui.dialogs.steam_login_worker import SteamLoginWorker
+from forager.ui.dialogs.settings_tabs import SettingsTab, _INPUT_QSS, _NOTE_QSS
 from forager.ui.dialogs.steam_web_login_dialog import SteamWebLoginDialog, clear_web_cookies
+from forager.ui.dialogs.steamgriddb_dialog import SteamGridDBTokenDialog
 
 _PRIMARY_BTN_QSS = f"""
 QPushButton {{ background-color: {C.ACCENT_1}; color: {C.BG}; border: none;
@@ -34,32 +34,12 @@ class AccountTab(SettingsTab):
         lay = QVBoxLayout(self)
 
         steam_box = self._group("Steam account")
-        steam_form = QFormLayout()
-        self._steam_user_edit = QLineEdit(steam.get_username() or "")
-        self._steam_user_edit.setStyleSheet(_INPUT_QSS)
-        self._steam_pass_edit = QLineEdit(steam.get_password() or "")
-        self._steam_pass_edit.setEchoMode(QLineEdit.EchoMode.Password)
-        self._steam_pass_edit.setStyleSheet(_INPUT_QSS)
-        steam_form.addRow("Username", self._steam_user_edit)
-        steam_form.addRow("Password", self._steam_pass_edit)
-
-        self._steam_remember = QCheckBox("Keep me signed in (store refresh token)")
-        self._steam_remember.setChecked(True)
-        self._steam_remember.setStyleSheet(_CHECK_QSS)
-        steam_form.addRow("", self._steam_remember)
-        steam_box.setLayout(steam_form)
-        lay.addWidget(steam_box)
-
         actions = QWidget()
         actions.setStyleSheet("background: transparent;")
         actions_layout = QHBoxLayout(actions)
         actions_layout.setContentsMargins(0, 0, 0, 0)
         actions_layout.setSpacing(8)
 
-        self._steam_signin_btn = QPushButton("Sign in with password")
-        self._steam_signin_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._steam_signin_btn.setStyleSheet(_SECONDARY_BTN_QSS)
-        self._steam_signin_btn.clicked.connect(self._on_steam_signin)
         self._steam_web_btn = QPushButton("Sign in with Steam")
         self._steam_web_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._steam_web_btn.setStyleSheet(_PRIMARY_BTN_QSS)
@@ -69,15 +49,15 @@ class AccountTab(SettingsTab):
         self._steam_signout_btn.setStyleSheet(_SECONDARY_BTN_QSS)
         self._steam_signout_btn.clicked.connect(self._on_steam_signout)
         actions_layout.addWidget(self._steam_web_btn)
-        actions_layout.addWidget(self._steam_signin_btn)
         actions_layout.addWidget(self._steam_signout_btn)
         actions_layout.addStretch(1)
-        lay.addWidget(actions)
-
         self._steam_status = QLabel()
         self._steam_status.setWordWrap(True)
         self._steam_status.setStyleSheet(_NOTE_QSS)
-        lay.addWidget(self._steam_status)
+        steam_lay = QVBoxLayout(steam_box)
+        steam_lay.addWidget(actions)
+        steam_lay.addWidget(self._steam_status)
+        lay.addWidget(steam_box)
 
         self._update_steam_status()
 
@@ -101,6 +81,11 @@ class AccountTab(SettingsTab):
         self._token_save_btn.setStyleSheet(_SECONDARY_BTN_QSS)
         self._token_save_btn.clicked.connect(self._save_token)
         token_layout.addWidget(self._token_save_btn)
+        self._token_get_btn = QPushButton("Get token")
+        self._token_get_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._token_get_btn.setStyleSheet(_SECONDARY_BTN_QSS)
+        self._token_get_btn.clicked.connect(self._on_get_token)
+        token_layout.addWidget(self._token_get_btn)
         token_layout.addStretch(1)
         lay.addWidget(token_row)
 
@@ -113,11 +98,9 @@ class AccountTab(SettingsTab):
         note = QLabel(
             "Sign in with the Steam login page (opens here) — Steam handles "
             "password, Steam Guard codes and the mobile-app QR itself, so "
-            "signing in is as reliable as in your browser. Use the password "
-            "flow to also cache a DepotDownloader session for hands-free "
-            "downloads. Credentials and sessions live in your system keyring / "
-            "Steam's own session storage, never in plaintext. Proton updates "
-            "still use anonymous access."
+            "signing in is as reliable as in your browser. Your session lives "
+            "in Steam's own session storage, never in plaintext. Proton "
+            "updates still use anonymous access."
         )
         note.setWordWrap(True)
         note.setStyleSheet(_NOTE_QSS)
@@ -154,53 +137,12 @@ class AccountTab(SettingsTab):
         dlg.finished.connect(lambda _r: self._update_steam_status())
         dlg.open()
 
-    def _on_steam_signin(self):
-        from forager.library import steam
-
-        user = self._steam_user_edit.text().strip()
-        password = self._steam_pass_edit.text()
-        if not user or not password:
-            self._steam_status.setText("Enter your Steam username and password first.")
-            return
-        worker = getattr(self, "_steam_worker", None)
-        if worker is not None and worker.isRunning():
-            return
-        self._steam_login_user = user
-        self._steam_login_password = password
-        self._steam_status.setText(f"Signing in as {user}…")
-        self._steam_signin_btn.setEnabled(False)
-        self._steam_worker = SteamLoginWorker(user, password, self._steam_remember.isChecked(), self)
-        self._steam_worker.guard_requested.connect(self._on_guard_requested)
-        self._steam_worker.done.connect(self._on_steam_login_done)
-        self._steam_worker.start()
-
-    def _on_guard_requested(self, message: str):
-        code, ok = QInputDialog.getText(self, "Steam Guard", message)
-        worker = getattr(self, "_steam_worker", None)
-        if worker is not None:
-            worker.answer_guard(code if ok else None)
-
-    def _on_steam_login_done(self, ok: bool, detail: str):
-        from forager.library import steam
-
-        self._steam_signin_btn.setEnabled(True)
-        if ok:
-            try:
-                steam.set_credentials(self._steam_login_user, self._steam_login_password)
-            except Exception as e:
-                self._steam_status.setText(f"Signed in, but could not store credentials: {e}")
-                return
-            self._steam_status.setText(detail or "Signed in.")
-        else:
-            self._steam_status.setText(detail or "Sign-in failed.")
-
     def _on_steam_signout(self):
         from forager.library import steam
 
         steam.clear_credentials()
         steam.clear_session()
         clear_web_cookies()
-        self._steam_pass_edit.clear()
         self._update_steam_status()
 
     # -- SteamGridDB token ---------------------------------------------
@@ -212,6 +154,15 @@ class AccountTab(SettingsTab):
             self._token_status.setText("API token set (used for cover art).")
         else:
             self._token_status.setText("No API token. Cover art falls back to Steam CDN/local files.")
+
+    def _on_get_token(self):
+        dlg = getattr(self, "_sgdb_dialog", None)
+        if dlg is not None and dlg.isVisible():
+            return
+        dlg = SteamGridDBTokenDialog(self.window())
+        self._sgdb_dialog = dlg
+        dlg.finished.connect(lambda _r: self._update_token_status())
+        dlg.open()
 
     def _save_token(self, silent: bool = False):
         from forager.library import steamgriddb
@@ -234,7 +185,6 @@ class AccountTab(SettingsTab):
         dlg = getattr(self, "_web_dialog", None)
         if dlg is not None:
             dlg.cancel()
-        worker = getattr(self, "_steam_worker", None)
-        if worker is not None and worker.isRunning():
-            worker.cancel()
-            worker.wait(3000)
+        sgdb = getattr(self, "_sgdb_dialog", None)
+        if sgdb is not None:
+            sgdb.cancel()
