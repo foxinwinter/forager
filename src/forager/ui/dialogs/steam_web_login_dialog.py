@@ -69,7 +69,7 @@ class SteamWebLoginDialog(QDialog):
         lay.setSpacing(0)
 
         self._view = QWebEngineView(self)
-        lay.addWidget(self._view)
+        lay.addWidget(self._view, 1)
 
         self._status = QLabel(
             "Sign in on this page — Steam handles password, Steam Guard and "
