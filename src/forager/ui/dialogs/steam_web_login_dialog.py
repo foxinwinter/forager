@@ -19,7 +19,7 @@ from PySide6.QtWidgets import QDialog, QLabel, QVBoxLayout
 from forager.library import steam
 from forager.ui.theme import C
 
-LOGIN_URL = "https://login.steampowered.com/"
+LOGIN_URL = "https://store.steampowered.com/login/"
 STORE_URL = "https://store.steampowered.com/"
 
 _NAME_JS = """
