@@ -3,9 +3,12 @@ import os
 import re
 import shutil
 import subprocess
+import tarfile
 import tempfile
+import time
 import urllib.request
 import zipfile
+from dataclasses import dataclass
 from pathlib import Path
 
 from forager.core.config import settings
@@ -19,6 +22,8 @@ from forager.utils.paths import (
 
 PROTON_APPID = "1493710"
 PROTON_DEPOTS = ("1493711", "4862111")
+STEAMCMD_URL = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz"
+STEAMCMD_DIR = runtime_dir() / "steamcmd"
 DEPOTDL_URL = "https://github.com/SteamRE/DepotDownloader/releases/download/DepotDownloader_3.4.0/DepotDownloader-linux-x64.zip"
 DEPOTDL_DIR = runtime_dir() / "depotdownloader"
 STAGING_DIR = runtime_dir() / "proton.new"
@@ -27,6 +32,25 @@ BACKUP_DIR = runtime_dir() / "proton.old"
 _RTP_RE = re.compile(r"^\s*rtp\s*=\s*(.+)$", re.IGNORECASE | re.MULTILINE)
 _RTP_KEY = r"HKLM\Software\Wow6432Node\Enterbrain\RGSS3\RTP"
 _RTP_MARKER = ".rtp-done"
+
+_PROGRESS_RE = re.compile(
+    r"Update state \([0-9a-fx]+\)\s+(\w+), progress:\s*([\d.]+)\s*\((\d+)\s*/\s*(\d+)\)"
+)
+
+
+@dataclass
+class DownloadProgress:
+    """Structured progress for an active Proton download (bytes/sec speed)."""
+
+    stage: str
+    percent: float
+    done: int
+    total: int
+    speed: int = 0
+
+
+class DownloadCancelled(Exception):
+    pass
 
 
 def proton_bin() -> Path:
@@ -132,35 +156,30 @@ def ensure_depotdownloader() -> None:
     depotdownloader_bin().chmod(0o755)
 
 
-def _restore_symlinks(new_dir: Path, ref_dir: Path) -> None:
-    """Steampipe strips symlinks to 0-byte placeholders and mode bits;
-    restore them from a known-good install so the depot matches a real
-    Steam install."""
-    for root, dirs, files in os.walk(new_dir):
-        dirs[:] = [d for d in dirs if d != "__pycache__"]
-        for d in dirs:
-            rel = Path(root).relative_to(new_dir) / d
-            ref = ref_dir / rel
-            if ref.is_dir():
-                try:
-                    os.chmod(Path(root) / d, ref.stat().st_mode)
-                except OSError:
-                    pass
-        for name in files:
-            path = Path(root) / name
-            rel = path.relative_to(new_dir)
-            ref = ref_dir / rel
-            if path.is_symlink():
-                continue
-            if ref.is_symlink() and path.stat().st_size == 0:
-                path.unlink()
-                path.symlink_to(os.readlink(ref))
-                continue
-            if ref.exists():
-                try:
-                    os.chmod(path, ref.stat().st_mode)
-                except OSError:
-                    pass
+def steamcmd_sh() -> Path:
+    return STEAMCMD_DIR / "steamcmd.sh"
+
+
+def ensure_steamcmd() -> None:
+    """Provision the official Valve steamcmd (used to install Proton with
+    symlinks intact, which DepotDownloader cannot do)."""
+    if steamcmd_sh().is_file():
+        return
+    STEAMCMD_DIR.mkdir(parents=True, exist_ok=True)
+    with urllib.request.urlopen(STEAMCMD_URL, timeout=120) as resp, tempfile.NamedTemporaryFile(suffix=".tar.gz", dir=runtime_dir()) as tmp:
+        shutil.copyfileobj(resp, tmp)
+        tmp.flush()
+        with tarfile.open(tmp.name) as tf:
+            tf.extractall(STEAMCMD_DIR)
+    steamcmd_sh().chmod(0o755)
+    (STEAMCMD_DIR / "linux32" / "steamcmd").chmod(0o755)
+
+
+def _verify_symlinks(new_dir: Path) -> None:
+    """Fail fast if symlinks were flattened to 0-byte placeholders."""
+    msidb = new_dir / "files" / "bin" / "msidb"
+    if not msidb.is_symlink():
+        raise RuntimeError("Proton download did not preserve symlinks")
 
 
 def _restore_exec_bits(new_dir: Path) -> None:
@@ -185,37 +204,71 @@ def _restore_exec_bits(new_dir: Path) -> None:
                     pass
 
 
-def update_proton(report=None) -> str | None:
+def update_proton(report=None, on_progress=None, cancel_event=None) -> str | None:
     def emit(msg: str) -> None:
         if report is not None:
             report(msg)
 
-    ensure_depotdownloader()
+    ensure_steamcmd()
 
     emit("Updating Proton...")
     if STAGING_DIR.exists():
         shutil.rmtree(STAGING_DIR)
     STAGING_DIR.mkdir(parents=True, exist_ok=True)
 
-    for depot in PROTON_DEPOTS:
-        emit(f"Downloading Proton from Steam (depot {depot})...")
-        subprocess.run(
-            [
-                str(depotdownloader_bin()),
-                "-anonymous",
-                "-app", PROTON_APPID,
-                "-depot", depot,
-                "-dir", str(STAGING_DIR),
-            ],
-            check=True,
-        )
-    shutil.rmtree(STAGING_DIR / ".DepotDownloader", ignore_errors=True)
+    emit("Downloading Proton from Steam...")
+    proc = subprocess.Popen(
+        [
+            str(steamcmd_sh()),
+            "+@ShutdownOnFailedCommand", "1",
+            "+@NoPromptForPassword", "1",
+            "+login", "anonymous",
+            "+force_install_dir", str(STAGING_DIR),
+            "+app_update", PROTON_APPID, "validate",
+            "+quit",
+        ],
+        cwd=str(STEAMCMD_DIR),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    assert proc.stdout is not None
+    last_done: int | None = None
+    last_t: float | None = None
+    speed = 0
+    for line in proc.stdout:
+        m = _PROGRESS_RE.search(line)
+        if m:
+            stage = m.group(1).capitalize()
+            percent = float(m.group(2))
+            done, total = int(m.group(3)), int(m.group(4))
+            now = time.monotonic()
+            if last_done is not None and last_t is not None:
+                dt = now - last_t
+                if dt > 0:
+                    speed = int((done - last_done) / dt)
+            last_done, last_t = done, now
+            if on_progress is not None:
+                on_progress(DownloadProgress(stage, percent, done, total, speed))
+        if cancel_event is not None and cancel_event.is_set():
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+            raise DownloadCancelled("Download cancelled")
+    returncode = proc.wait()
+    if returncode != 0:
+        raise RuntimeError(f"steamcmd exited with code {returncode}")
 
     if not (STAGING_DIR / "proton").is_file():
         raise RuntimeError("Downloaded Proton is missing its launcher script")
+    _verify_symlinks(STAGING_DIR)
+    shutil.rmtree(STAGING_DIR / "steamapps", ignore_errors=True)
 
     emit("Applying patches...")
-    _restore_symlinks(STAGING_DIR, proton_dir())
     _restore_exec_bits(STAGING_DIR)
 
     saved_pfx = runtime_dir() / ".prefix-pfx"
