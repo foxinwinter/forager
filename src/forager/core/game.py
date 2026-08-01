@@ -10,6 +10,8 @@ GENERIC_CONTAINERS = {
     "games", "instances", "launcher", "single", "flash", "drm-free",
 }
 
+ENGINE_NAMES = {"other", "rpgmaker", "unity", "unreal"}
+
 
 class Source(Enum):
     STEAM = auto()
@@ -64,17 +66,20 @@ class Game:
         Searches the holding (series) folder rather than the leaf folder name,
         so e.g. ``series/sequel/asylum`` searches ``sequel``. Returns None for
         generic container folders (minecraft, standalone, ...) to avoid wrong
-        matches. ``search_names`` always wins when set.
+        matches. Single games under an engine folder (``other``, ``unity``, …)
+        fall back to searching by their own name. ``search_names`` always wins
+        when set.
         """
         if self.search_names:
             return (list(self.search_names), "")
         if self.source == Source.STEAM:
             return None
         try:
-            parts = self.path.resolve().relative_to(games_dir()).parts
+            parts = list(self.path.resolve().relative_to(games_dir()).parts)
         except ValueError:
             return None
-        parts = list(parts)
+        if len(parts) >= 2 and parts[-2].lower() in ENGINE_NAMES:
+            return ([parts[-1]], "")
         while len(parts) >= 2 and parts[-2].lower() in GENERIC_CONTAINERS:
             parts.pop()
         if len(parts) >= 2:

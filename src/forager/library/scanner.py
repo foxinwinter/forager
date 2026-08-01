@@ -1,7 +1,7 @@
 from __future__ import annotations
 import re
 from pathlib import Path
-from forager.core.game import Game, Source
+from forager.core.game import ENGINE_NAMES, Game, Source
 from forager.utils.paths import games_dir
 
 # Steam app IDs that are tools/runtimes rather than games (never shown in
@@ -87,9 +87,6 @@ def _scan_minecraft() -> list[Game]:
             )
         )
     return games
-
-
-ENGINE_NAMES = {"other", "rpgmaker", "unity", "unreal"}
 
 
 def _scan_standalone() -> list[Game]:
