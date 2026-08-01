@@ -186,7 +186,9 @@ class GamePage(QWidget):
         hero = art.load_hero(game, allow_network=False)
         if hero is None:
             hero = art.placeholder_card(game, 900, 420)
-        self._banner.set_source(hero)
+            self._banner.set_source(hero, fit=True)
+        else:
+            self._banner.set_source(hero)
 
         self._logo = art.load_logo(game)
         if self._logo is not None:
