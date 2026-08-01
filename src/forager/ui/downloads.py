@@ -1,11 +1,16 @@
 """Sidebar download box and Downloads page, styled like Steam's SpaceTheme
-download bar: a compact card above the user panel with a 4px rounded accent
-progress bar. The box is only visible while a download is active; clicking it
-opens the built-in Downloads page.
+download bar and downloads page (src/css/steam/sidebar.css + downloadPage.css).
+
+The sidebar ``DownloadBox`` is a compact card above the user panel (COLOR_2,
+4px rounded accent bar) visible only while a download is active; clicking it
+opens the built-in Downloads page. That page mirrors Steam's download page:
+a full-width banner with a right-side fade to COLOR_2, a stats row with the
+accent-coloured download speed, and an Updates list.
 """
 from __future__ import annotations
-from PySide6.QtCore import Qt, QRectF, Signal
-from PySide6.QtGui import QColor, QFont, QPainter
+import shutil
+from PySide6.QtCore import Qt, QRectF, Signal, QSize
+from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QWidget, QFrame, QLabel, QPushButton,
     QVBoxLayout, QHBoxLayout,
@@ -13,8 +18,10 @@ from PySide6.QtWidgets import (
 
 from forager.ui.theme import C
 from forager.ui.icons import load_icon
+from forager.utils.paths import games_dir
 
 _SPEED_QSS = f"color: #b8bcbf; font-size: 11px; background: transparent;"
+_DIM_TEXT_QSS = "color: #b8bcbf; background: transparent;"
 
 
 def format_size(num: float) -> str:
@@ -23,6 +30,12 @@ def format_size(num: float) -> str:
             return f"{num:.1f} {unit}"
         num /= 1024
     return f"{num:.1f} PB"
+
+
+def _format_eta(seconds: float) -> str:
+    seconds = max(0, int(seconds))
+    m, s = divmod(seconds, 60)
+    return f"{m}m {s:02d}s" if m else f"{s}s"
 
 
 class ProgressBar(QWidget):
@@ -126,120 +139,291 @@ class DownloadBox(QFrame):
         self.hide()
 
 
+class _Banner(QWidget):
+    """Full-width 'installing now' banner: art background fading to COLOR_2 on
+    the right (SpaceTheme downloadPage.css), title/status over the art, and a
+    4px accent progress bar flush along the bottom edge."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMinimumHeight(230)
+        self._watermark = load_icon("download", C.TEXT).pixmap(170, 170)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        info = QHBoxLayout()
+        info.setContentsMargins(28, 26, 28, 0)
+        info.setSpacing(10)
+        col = QVBoxLayout()
+        col.setSpacing(4)
+        self._title = QLabel("")
+        self._title.setStyleSheet(
+            f"color: {C.TEXT}; font-size: 20px; font-weight: 700; background: transparent;"
+        )
+        self._status = QLabel("")
+        self._status.setStyleSheet(
+            f"color: {C.ACCENT_1}; font-size: 13px; font-weight: 600; background: transparent;"
+        )
+        col.addWidget(self._title)
+        col.addWidget(self._status)
+        info.addLayout(col)
+        info.addStretch(1)
+        layout.addLayout(info)
+        layout.addStretch(1)
+
+        self._bar = ProgressBar(height=4, parent=self)
+        layout.addWidget(self._bar)
+
+    def set_title(self, text: str) -> None:
+        self._title.setText(text)
+
+    def set_status(self, text: str) -> None:
+        self._status.setText(text)
+
+    def set_bar(self, percent: float) -> None:
+        self._bar.set_value(percent)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
+
+        base = QLinearGradient(0, 0, 0, h)
+        base.setColorAt(0.0, QColor("#222833"))
+        base.setColorAt(1.0, QColor("#12161c"))
+        painter.fillRect(0, 0, w, h, base)
+
+        side = min(w, h) // 2
+        if not self._watermark.isNull():
+            painter.setOpacity(0.10)
+            painter.drawPixmap(
+                (w - side) // 2, int(h * 0.42) - side // 2, side, side, self._watermark
+            )
+            painter.setOpacity(1.0)
+
+        fade = QLinearGradient(0, 0, w, 0)
+        fade.setColorAt(0.15, QColor(C.COLOR_2).withAlpha(0))
+        fade.setColorAt(0.90, QColor(C.COLOR_2))
+        painter.fillRect(0, 0, w, h, fade)
+        painter.end()
+
+
+class _StatItem(QWidget):
+    """Stats-row entry: accent icon chip + caption + big value (accent for the
+    download speed, per SpaceTheme downloadPage.css)."""
+
+    def __init__(self, icon_name: str, caption: str, accent: bool = False, parent=None):
+        super().__init__(parent)
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(10)
+
+        chip = QLabel()
+        chip.setPixmap(load_icon(icon_name, C.ACCENT_1).pixmap(18, 18))
+        chip.setFixedSize(36, 36)
+        chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        chip.setStyleSheet(f"background-color: {C.COLOR_3}; border-radius: 8px;")
+
+        text = QVBoxLayout()
+        text.setSpacing(1)
+        cap = QLabel(caption)
+        cap.setStyleSheet(f"color: #b8bcbf; font-size: 11px; background: transparent;")
+        self._value = QLabel("\u2014")
+        self._value.setStyleSheet(
+            f"color: {C.ACCENT_1 if accent else C.TEXT}; font-size: 15px;"
+            f"font-weight: 700; background: transparent;"
+        )
+        text.addWidget(cap)
+        text.addWidget(self._value)
+
+        lay.addWidget(chip)
+        lay.addLayout(text)
+        lay.addStretch(1)
+
+    def set_value(self, text: str) -> None:
+        self._value.setText(text)
+
+
 class DownloadsPage(QWidget):
     """Steam-style download manager page (opened from the sidebar box)."""
 
     cancel_requested = Signal()
+    settings_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setStyleSheet(f"background-color: {C.BG};")
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 18, 24, 18)
+        layout.setContentsMargins(12, 8, 12, 12)
         layout.setSpacing(12)
 
-        header = QLabel("Downloads")
-        header.setFont(QFont("Roboto", 22, QFont.Weight.Bold))
-        header.setStyleSheet(f"color: {C.TEXT}; background: transparent;")
-        layout.addWidget(header)
+        header = QHBoxLayout()
+        header.setContentsMargins(12, 8, 12, 0)
+        title = QLabel("Downloads")
+        title.setFont(QFont("Roboto", 20, QFont.Weight.Bold))
+        title.setStyleSheet(f"color: {C.TEXT}; background: transparent;")
+        gear = QPushButton()
+        gear.setIcon(load_icon("settings", C.TEXT_DIM))
+        gear.setIconSize(QSize(18, 18))
+        gear.setFixedSize(28, 28)
+        gear.setCursor(Qt.CursorShape.PointingHandCursor)
+        gear.setToolTip("Download settings")
+        gear.setStyleSheet(
+            f"QPushButton {{ background: transparent; border: none; border-radius: 6px;"
+            f"padding: 0; }}"
+            f"QPushButton:hover {{ background: transparent; }}"
+        )
+        gear.setIcon(load_icon("settings", C.TEXT))
+        gear.clicked.connect(self.settings_requested)
+        header.addWidget(title)
+        header.addStretch(1)
+        header.addWidget(gear)
+        layout.addLayout(header)
 
-        self._card = QFrame()
-        self._card.setObjectName("downloadCard")
-        self._card.setStyleSheet(
-            f"#downloadCard {{ background-color: {C.COLOR_2}; border: none;"
+        self._banner = _Banner()
+        layout.addWidget(self._banner)
+
+        stats = QHBoxLayout()
+        stats.setContentsMargins(12, 4, 12, 0)
+        stats.setSpacing(28)
+        self._speed_stat = _StatItem("download", "Download speed", accent=True)
+        self._time_stat = _StatItem("box", "Time remaining")
+        self._space_stat = _StatItem("floppy-disk", "Available space")
+        for stat in (self._speed_stat, self._time_stat, self._space_stat):
+            stats.addWidget(stat)
+        stats.addStretch(1)
+        layout.addLayout(stats)
+
+        queue = QVBoxLayout()
+        queue.setContentsMargins(12, 8, 12, 0)
+        queue.setSpacing(8)
+        qheader = QLabel("Updates")
+        qheader.setFont(QFont("Roboto", 15, QFont.Weight.Bold))
+        qheader.setStyleSheet(f"color: {C.TEXT}; background: transparent;")
+        queue.addWidget(qheader)
+
+        self._item = QFrame()
+        self._item.setObjectName("queueItem")
+        self._item.setStyleSheet(
+            f"#queueItem {{ background-color: {C.COLOR_2}; border: none;"
             f"border-radius: {C.RADIUS}px; }}"
         )
-        card_layout = QVBoxLayout(self._card)
-        card_layout.setContentsMargins(16, 14, 16, 14)
-        card_layout.setSpacing(10)
+        item_lay = QHBoxLayout(self._item)
+        item_lay.setContentsMargins(16, 12, 16, 12)
+        item_lay.setSpacing(14)
 
-        top = QHBoxLayout()
-        top.setSpacing(10)
-        self._icon = QLabel()
-        self._icon.setPixmap(load_icon("download", C.ACCENT_1).pixmap(20, 20))
-        self._icon.setFixedSize(28, 28)
-        self._icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._icon.setStyleSheet(
-            f"background-color: {C.COLOR_3}; border-radius: 6px;"
+        chip = QLabel()
+        chip.setPixmap(load_icon("download", C.ACCENT_2).pixmap(20, 20))
+        chip.setFixedSize(34, 34)
+        chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        chip.setStyleSheet(f"background-color: {C.COLOR_3}; border-radius: 8px;")
+        item_lay.addWidget(chip)
+
+        col = QVBoxLayout()
+        col.setSpacing(2)
+        self._item_name = QLabel("")
+        self._item_name.setStyleSheet(
+            f"color: {C.TEXT}; font-size: 13px; font-weight: 600; background: transparent;"
         )
-        self._title = QLabel("Proton Experimental")
-        self._title.setStyleSheet(
-            f"color: {C.TEXT}; font-size: 14px; font-weight: 600; background: transparent;"
-        )
-        self._cancel = QPushButton("Cancel")
-        self._cancel.setStyleSheet(
+        self._item_status = QLabel("")
+        self._item_status.setStyleSheet(_DIM_TEXT_QSS)
+        col.addWidget(self._item_name)
+        col.addWidget(self._item_status)
+        item_lay.addLayout(col)
+        item_lay.addStretch(1)
+
+        self._item_bar = ProgressBar(height=4, parent=self)
+        self._item_bar.setFixedWidth(220)
+        item_lay.addWidget(self._item_bar)
+
+        self._item_cancel = QPushButton("Cancel")
+        self._item_cancel.setStyleSheet(
             f"QPushButton {{ background-color: {C.COLOR_3}; color: {C.TEXT};"
             f"border: none; border-radius: {C.RADIUS}px; padding: 5px 14px; }}"
             f"QPushButton:hover {{ background-color: {C.COLOR_1}; }}"
         )
-        self._cancel.clicked.connect(self.cancel_requested)
-        top.addWidget(self._icon)
-        top.addWidget(self._title)
-        top.addStretch(1)
-        top.addWidget(self._cancel)
-        card_layout.addLayout(top)
+        self._item_cancel.clicked.connect(self.cancel_requested)
+        item_lay.addWidget(self._item_cancel)
+        queue.addWidget(self._item)
 
-        self._status = QLabel("")
-        self._status.setStyleSheet(
-            f"color: {C.TEXT_MUTED}; font-size: 12px; background: transparent;"
-        )
-        card_layout.addWidget(self._status)
-
-        self._bar = ProgressBar(height=6, parent=self)
-        card_layout.addWidget(self._bar)
-
-        layout.addWidget(self._card)
-
-        self._empty = QLabel("No downloads in progress")
+        self._empty = QLabel("No active downloads")
         self._empty.setStyleSheet(
             f"color: {C.TEXT_DIM}; font-size: 13px; background: transparent;"
         )
         self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self._empty, stretch=1)
+        queue.addWidget(self._empty)
 
+        layout.addLayout(queue)
+        layout.addStretch(1)
         self.set_idle()
 
+    def _refresh_space(self) -> None:
+        try:
+            free = shutil.disk_usage(str(games_dir())).free
+        except OSError:
+            free = 0
+        self._space_stat.set_value(format_size(free) if free else "\u2014")
+
     def set_idle(self) -> None:
-        self._card.hide()
+        self._banner.hide()
+        self._item.hide()
         self._empty.show()
+        self._speed_stat.set_value("\u2014")
+        self._time_stat.set_value("\u2014")
+        self._refresh_space()
 
     def begin(self, name: str) -> None:
-        self._title.setText(name)
-        self._status.setText("Waiting to start\u2026")
-        self._bar.set_value(0)
-        self._cancel.show()
-        self._card.show()
+        self._banner.show()
+        self._item.show()
         self._empty.hide()
+        self._banner.set_title(name)
+        self._banner.set_status("Waiting to start\u2026")
+        self._banner.set_bar(0)
+        self._item_name.setText(name)
+        self._item_status.setText("Waiting to start\u2026")
+        self._item_bar.set_value(0)
+        self._item_cancel.show()
+        self._speed_stat.set_value("\u2014")
+        self._time_stat.set_value("\u2014")
+        self._refresh_space()
 
     def set_progress(self, progress) -> None:
-        self._bar.set_value(progress.percent)
-        if progress.stage.lower() == "downloading":
-            bits = [f"Downloading \u00b7 {progress.percent:.0f}%",
-                    f"{format_size(progress.done)} / {format_size(progress.total)}"]
-            if progress.speed > 0:
-                bits.append(f"{format_size(progress.speed)}/s")
-            self._status.setText(" \u00b7 ".join(bits))
+        status = (
+            f"{progress.stage}\u2026 \u00b7 {progress.percent:.0f}%"
+            if progress.stage.lower() != "downloading"
+            else f"Downloading \u00b7 {progress.percent:.0f}%"
+        )
+        self._banner.set_status(status)
+        self._banner.set_bar(progress.percent)
+        self._item_status.setText(status)
+        self._item_bar.set_value(progress.percent)
+
+        if progress.stage.lower() == "downloading" and progress.speed > 0:
+            self._speed_stat.set_value(f"{format_size(progress.speed)}/s")
+            remaining = progress.total - progress.done
+            self._time_stat.set_value(
+                _format_eta(remaining / progress.speed) if remaining > 0 else "\u2014"
+            )
         else:
-            self._status.setText(f"{progress.stage}\u2026 \u00b7 {progress.percent:.0f}%")
+            self._speed_stat.set_value("\u2014")
+            self._time_stat.set_value("\u2014")
+
+    def _finish(self, status: str) -> None:
+        self._item_cancel.hide()
+        self._banner.set_status(status)
+        self._banner.set_bar(100)
+        self._item_status.setText(status)
+        self._item_bar.set_value(100)
+        self._speed_stat.set_value("\u2014")
+        self._time_stat.set_value("\u2014")
 
     def complete(self, version: str = "") -> None:
-        self._bar.set_value(100)
-        self._cancel.hide()
-        if version:
-            self._status.setText(f"Completed\u2014Proton {version}")
-        else:
-            self._status.setText("Completed")
-        self._card.show()
-        self._empty.hide()
+        self._finish(f"Completed\u2014{version}" if version else "Completed")
 
     def failed(self, error: str) -> None:
-        self._cancel.hide()
-        self._status.setText(f"Failed: {error}")
-        self._card.show()
-        self._empty.hide()
+        self._finish(f"Failed: {error}")
 
     def cancelled(self) -> None:
-        self._cancel.hide()
-        self._status.setText("Download cancelled")
-        self._card.show()
-        self._empty.hide()
+        self._finish("Download cancelled")

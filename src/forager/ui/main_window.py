@@ -22,6 +22,7 @@ from forager.ui.downloads import DownloadsPage
 from forager.ui.controller_nav import GamepadNavigation
 from forager.ui.workers import (
     ScanWorker, ProtonUpdateWorker, TestDownloadWorker,
+    ToolUpdateCheckWorker, ToolUpdateWorker,
     ArtSignals, HeroSignals, _art_job, _hero_job,
 )
 
@@ -43,6 +44,7 @@ class MainWindow(QMainWindow):
         if app is not None:
             app.aboutToQuit.connect(self._shutdown_threads)
         QTimer.singleShot(50, self._load_games)
+        QTimer.singleShot(100, self._check_tool_updates)
     # -- UI ------------------------------------------------------------
 
     def _setup_ui(self):
@@ -89,6 +91,7 @@ class MainWindow(QMainWindow):
         self._sidebar.search_changed.connect(self._on_search_changed)
         self._sidebar.download_clicked.connect(self._show_downloads)
         self._downloads_page.cancel_requested.connect(self._cancel_proton_update)
+        self._titlebar.run_updates_requested.connect(self._run_tool_updates)
         self._gamepage.play.connect(self._launch_game)
         self._gamepage.back_requested.connect(self._show_home)
 
@@ -283,6 +286,43 @@ class MainWindow(QMainWindow):
 
     def _status_show(self, text: str):
         self.statusBar().showMessage(text, 5000)
+
+    # -- tool updates ------------------------------------------------
+
+    def _check_tool_updates(self):
+        self._tool_updates: list = []
+        self._update_check_worker = ToolUpdateCheckWorker(self)
+        self._update_check_worker.done.connect(self._on_tool_check_done)
+        self._update_check_worker.start()
+
+    def _on_tool_check_done(self, updates: list):
+        self._tool_updates = updates
+        self._titlebar.set_updates([u.name for u in updates])
+
+    def _run_tool_updates(self):
+        updates = getattr(self, "_tool_updates", [])
+        if not updates:
+            return
+        names = ", ".join(u.name for u in updates)
+        reply = QMessageBox.question(
+            self, "Tool Updates",
+            f"Update {names} to the latest version?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        self._status_show("Updating tools...")
+        self._update_runner = ToolUpdateWorker(self)
+        self._update_runner.done.connect(self._on_tool_update_done)
+        self._update_runner.start()
+
+    def _on_tool_update_done(self, ok: bool, result: str):
+        if ok:
+            self._titlebar.set_updates([])
+            self._status_show(result)
+        else:
+            self._status_show(f"Tool update failed: {result}")
 
     # -- controller ----------------------------------------------------
 
