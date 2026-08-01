@@ -13,13 +13,13 @@ from forager.library.launcher import launch
 from forager.core.controller import ControllerPoller
 from forager.services.pixmap_utils import bytes_to_pixmap
 from forager.ui.theme import C
-from forager.ui.sidebar import Sidebar
-from forager.ui.titlebar import TitleBar
-from forager.ui.game_grid import GameGrid
-from forager.ui.gamepage import GamePage
-from forager.ui.settings import SettingsDialog, resolve_card_size
-from forager.ui.downloads import DownloadsPage
-from forager.ui.controller_nav import GamepadNavigation
+from forager.ui.widgets.sidebar import Sidebar
+from forager.ui.widgets.titlebar import TitleBar
+from forager.ui.pages.game_grid import GameGrid
+from forager.ui.pages.gamepage import GamePage
+from forager.ui.dialogs.settings import SettingsDialog, resolve_card_size
+from forager.ui.pages.downloads import DownloadsPage
+from forager.ui.widgets.controller_nav import GamepadNavigation
 from forager.ui.workers import (
     ScanWorker, ProtonUpdateWorker, TestDownloadWorker,
     ToolUpdateCheckWorker, ToolUpdateWorker,

@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 
 from forager.library import steam
 from forager.ui.theme import C
-from forager.ui.steam_login_worker import SteamQrWorker
+from forager.ui.dialogs.steam_login_worker import SteamQrWorker
 
 _QR_SIZE = 240
 

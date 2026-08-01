@@ -7,9 +7,9 @@ from PySide6.QtWidgets import (
 )
 
 from forager.ui.theme import C
-from forager.ui.settings_tabs import SettingsTab, _INPUT_QSS, _CHECK_QSS, _NOTE_QSS
-from forager.ui.steam_login_worker import SteamLoginWorker
-from forager.ui.steam_qr_dialog import SteamQrDialog
+from forager.ui.dialogs.settings_tabs import SettingsTab, _INPUT_QSS, _CHECK_QSS, _NOTE_QSS
+from forager.ui.dialogs.steam_login_worker import SteamLoginWorker
+from forager.ui.dialogs.steam_qr_dialog import SteamQrDialog
 
 _PRIMARY_BTN_QSS = f"""
 QPushButton {{ background-color: {C.ACCENT_1}; color: {C.BG}; border: none;

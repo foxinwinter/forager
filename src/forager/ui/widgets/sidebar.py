@@ -10,7 +10,7 @@ from forager.core.game import Game
 from forager.library.icon_provider import load_icon
 from forager.ui.theme import C
 from forager.ui.icons import load_icon as load_bundled_icon
-from forager.ui.downloads import DownloadBox
+from forager.ui.pages.downloads import DownloadBox
 
 _SIDEBAR_W = 240
 

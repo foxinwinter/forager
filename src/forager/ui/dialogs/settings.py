@@ -8,8 +8,8 @@ from PySide6.QtWidgets import (
 from forager.core.config import settings
 from forager.ui.theme import C
 from forager.ui.icons import load_icon as load_bundled_icon
-from forager.ui.account_tab import AccountTab
-from forager.ui.settings_tabs import LibraryTab, ProtonTab, DISPLAY_SIZES
+from forager.ui.dialogs.account_tab import AccountTab
+from forager.ui.dialogs.settings_tabs import LibraryTab, ProtonTab, DISPLAY_SIZES
 
 _NAV_BTN_QSS = f"""
 QPushButton {{

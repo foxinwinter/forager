@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGridLayout, QScroll
 from forager.core.game import Game
 from forager.services import art
 from forager.ui.theme import C
-from forager.ui.game_card import GameCard
+from forager.ui.widgets.game_card import GameCard
 
 _GRID_MARGIN = 23
 _GRID_MIN_GAP = 12

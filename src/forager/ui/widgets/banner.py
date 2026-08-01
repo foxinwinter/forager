@@ -4,21 +4,16 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap, QColor, QPainter, QPainterPath
 from PySide6.QtWidgets import QWidget
 
-from forager.services import art
 from forager.ui.theme import C
 
 _BANNER_H = 420
-_BLUR_DIVISOR = 12
 
 
 class Banner(QWidget):
     """Wide hero image with the Play-overlay area on top.
 
-    Sources are always scaled proportionally (never distorted). Landscape
-    sources stretch up/down to cover the whole banner, cropping only the small
-    vertical excess; portrait sources scale to fit so the full image is shown,
-    with a blurred stretched copy of the artwork filling the side space
-    (Steam's side-blur backdrop).
+    The source pixmap is never modified: it is drawn stretched to cover the
+    whole banner widget at paint time.
     """
 
     def __init__(self, parent=None):
@@ -42,21 +37,6 @@ class Banner(QWidget):
         if self._overlay is not None:
             self._overlay.setGeometry(self.rect())
 
-    def _backdrop(self, pix: QPixmap) -> QPixmap:
-        """Steam-style blurred fill: stretch the artwork to cover the banner
-        and soften it by downscaling then smoothing back up."""
-        small = pix.scaled(
-            max(1, pix.width() // _BLUR_DIVISOR),
-            max(1, pix.height() // _BLUR_DIVISOR),
-            Qt.AspectRatioMode.IgnoreAspectRatio,
-            Qt.TransformationMode.FastTransformation,
-        )
-        return small.scaled(
-            self.width(), self.height(),
-            Qt.AspectRatioMode.IgnoreAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
-
     def paintEvent(self, event):
         super().paintEvent(event)
         p = QPainter(self)
@@ -71,31 +51,10 @@ class Banner(QWidget):
 
         p.save()
         p.setClipPath(self._clip_path())
-        self._paint_steam_style(p)
+        p.drawPixmap(self.rect(), self._source)
         p.restore()
 
     def _clip_path(self):
         path = QPainterPath()
         path.addRoundedRect(self.rect(), C.RADIUS, C.RADIUS)
         return path
-
-    def _paint_steam_style(self, p: QPainter):
-        w, h = self.width(), self.height()
-        src = self._source
-
-        if src.width() / src.height() >= w / h:
-            p.drawPixmap(0, 0, art.scale_crop(src, w, h))
-            return
-
-        fitted = src.scaled(
-            w, h,
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
-
-        if fitted.width() < w or fitted.height() < h:
-            p.drawPixmap(0, 0, self._backdrop(src))
-
-        x = (w - fitted.width()) // 2
-        y = (h - fitted.height()) // 2
-        p.drawPixmap(x, y, fitted)
