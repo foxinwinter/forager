@@ -159,7 +159,7 @@ class GamePage(QWidget):
         v.addWidget(header)
 
         self._info_rows: dict[str, QLabel] = {}
-        for key, label in (("Source", "source"), ("Location", "path"), ("App ID", "app_id")):
+        for key, label in (("Source", "source"), ("App ID", "app_id")):
             row = QHBoxLayout()
             row.setSpacing(8)
             k = QLabel(key.upper())
@@ -206,7 +206,6 @@ class GamePage(QWidget):
         self._source_badge.setText(game.source_name)
         self._path_label.setText(game.display_path)
         self._info_rows["source"].setText(game.source_name)
-        self._info_rows["path"].setText(game.display_path)
         self._info_rows["app_id"].setText(game.app_id or "—")
 
     def set_hero(self, pix: QPixmap | None):
