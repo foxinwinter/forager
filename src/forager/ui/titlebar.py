@@ -38,8 +38,8 @@ class TitleBar(QWidget):
             f"QToolButton::menu-indicator {{ image: none; }}"
         )
         self._main_menu = QMenu(self)
-        self._main_menu.addAction("Settings…", self.settings_requested)
-        self._main_menu.addAction("Update Proton", self.update_proton_requested)
+        self._main_menu.addAction("Settings…", self.settings_requested.emit)
+        self._main_menu.addAction("Update Proton", self.update_proton_requested.emit)
         self._main_menu.addSeparator()
         self._main_menu.addAction("Quit", QApplication.instance().quit)
         logo.setMenu(self._main_menu)
