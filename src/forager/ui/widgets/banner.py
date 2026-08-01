@@ -13,12 +13,11 @@ _BLUR_DIVISOR = 12
 class Banner(QWidget):
     """Wide hero image with the Play-overlay area on top.
 
-    The source pixmap is never modified. When the art is wider than the banner
-    box (small window) it fills the banner edge-to-edge, showing the middle of
-    the art with the horizontal overflow cropped. When the art is narrower than
-    the box (fullscreen / roomy window) the whole art is shown, centred, with a
-    blurred backdrop filling the leftover space. When ``fit`` is set the art is
-    always shown whole and never cropped.
+    Mirrors how the Steam client renders its hero: the art is scaled to cover
+    the banner box edge-to-edge and its overflow is centre-cropped, so there is
+    never a backdrop band. When ``fit`` is set (generated placeholder art) the
+    art is instead shown whole, centred, with a blurred backdrop filling the
+    leftover space.
     """
 
     def __init__(self, parent=None):
@@ -64,9 +63,9 @@ class Banner(QWidget):
         w, h = self.width(), self.height()
         src = self._source
         sw, sh = src.width(), src.height()
-        if self._fit or sw * h < sh * w:
-            # The art is narrower than the box (or always fitted): show the
-            # whole art, centred, with a blurred backdrop filling the rest.
+        if self._fit:
+            # Generated placeholder art: show it whole, centred, with a blurred
+            # backdrop filling the leftover space.
             scale = min(w / sw, h / sh)
             disp_w, disp_h = sw * scale, sh * scale
             p.drawPixmap(0, 0, self._backdrop(src))
@@ -74,12 +73,19 @@ class Banner(QWidget):
                                 disp_w, disp_h),
                          src, QRectF(0, 0, sw, sh))
             return
-        # The art is wider than the box (small window): fill the banner
-        # edge-to-edge, showing the middle of the art.
-        src_w = w * sh / h
-        sx = (sw - src_w) / 2
-        p.drawPixmap(QRectF(0, 0, w, h), src,
-                     QRectF(sx, 0, src_w, sh))
+        # Cover like the Steam client's object-fit: cover: the art always fills
+        # the box edge-to-edge and its overflow is centre-cropped, so there is
+        # never a backdrop band.
+        if sw * h >= sh * w:
+            src_w = w * sh / h
+            sx = (sw - src_w) / 2
+            p.drawPixmap(QRectF(0, 0, w, h), src,
+                         QRectF(sx, 0, src_w, sh))
+        else:
+            src_h = h * sw / w
+            sy = (sh - src_h) / 2
+            p.drawPixmap(QRectF(0, 0, w, h), src,
+                         QRectF(0, sy, sw, src_h))
 
     def _backdrop(self, pix: QPixmap) -> QPixmap:
         small = pix.scaled(
