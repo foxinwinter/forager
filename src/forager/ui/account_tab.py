@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 from forager.ui.theme import C
 from forager.ui.settings_tabs import SettingsTab, _INPUT_QSS, _CHECK_QSS, _NOTE_QSS
 from forager.ui.steam_login_worker import SteamLoginWorker
+from forager.ui.steam_qr_dialog import SteamQrDialog
 
 _PRIMARY_BTN_QSS = f"""
 QPushButton {{ background-color: {C.ACCENT_1}; color: {C.BG}; border: none;
@@ -55,14 +56,19 @@ class AccountTab(SettingsTab):
         actions_layout.setContentsMargins(0, 0, 0, 0)
         actions_layout.setSpacing(8)
 
-        self._steam_signin_btn = QPushButton("Sign in")
+        self._steam_signin_btn = QPushButton("Sign in with password")
         self._steam_signin_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._steam_signin_btn.setStyleSheet(_PRIMARY_BTN_QSS)
+        self._steam_signin_btn.setStyleSheet(_SECONDARY_BTN_QSS)
         self._steam_signin_btn.clicked.connect(self._on_steam_signin)
+        self._steam_qr_btn = QPushButton("Sign in with QR")
+        self._steam_qr_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._steam_qr_btn.setStyleSheet(_PRIMARY_BTN_QSS)
+        self._steam_qr_btn.clicked.connect(self._on_steam_qr)
         self._steam_signout_btn = QPushButton("Sign out")
         self._steam_signout_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._steam_signout_btn.setStyleSheet(_SECONDARY_BTN_QSS)
         self._steam_signout_btn.clicked.connect(self._on_steam_signout)
+        actions_layout.addWidget(self._steam_qr_btn)
         actions_layout.addWidget(self._steam_signin_btn)
         actions_layout.addWidget(self._steam_signout_btn)
         actions_layout.addStretch(1)
@@ -105,9 +111,11 @@ class AccountTab(SettingsTab):
         self._update_token_status()
 
         note = QLabel(
-            "Steam credentials are kept in your system keyring (never stored in plaintext). "
-            "Signing in validates them with DepotDownloader; Steam Guard codes are asked for here "
-            "when needed. Proton updates still use anonymous access."
+            "Sign in with the Steam mobile app (QR code), or use username/password — "
+            "the password flow is how you sign in without a phone (Steam Guard codes "
+            "are asked for here when needed). Credentials and sessions live in your "
+            "system keyring / DepotDownloader's account store, never in plaintext. "
+            "Proton updates still use anonymous access."
         )
         note.setWordWrap(True)
         note.setStyleSheet(_NOTE_QSS)
@@ -121,9 +129,24 @@ class AccountTab(SettingsTab):
 
         user = steam.get_username()
         if user:
-            self._steam_status.setText(f"Credentials stored for {user}.")
+            method = steam.get_login_method()
+            if method == "qr":
+                self._steam_status.setText(
+                    f"Signed in as {user} (QR session — game downloads are hands-free)."
+                )
+            else:
+                self._steam_status.setText(f"Credentials stored for {user}.")
         else:
             self._steam_status.setText("Not signed in.")
+
+    def _on_steam_qr(self):
+        dlg = getattr(self, "_qr_dialog", None)
+        if dlg is not None and dlg.isVisible():
+            return
+        dlg = SteamQrDialog(self.window())
+        self._qr_dialog = dlg
+        dlg.finished.connect(lambda _r: self._update_steam_status())
+        dlg.open()
 
     def _on_steam_signin(self):
         from forager.library import steam
@@ -169,6 +192,7 @@ class AccountTab(SettingsTab):
         from forager.library import steam
 
         steam.clear_credentials()
+        steam.clear_session()
         self._steam_pass_edit.clear()
         self._update_steam_status()
 
@@ -200,6 +224,9 @@ class AccountTab(SettingsTab):
         self._save_token()
 
     def cancel_worker(self):
+        dlg = getattr(self, "_qr_dialog", None)
+        if dlg is not None:
+            dlg.cancel()
         worker = getattr(self, "_steam_worker", None)
         if worker is not None and worker.isRunning():
             worker.cancel()
