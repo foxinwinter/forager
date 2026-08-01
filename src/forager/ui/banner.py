@@ -14,9 +14,11 @@ _BLUR_DIVISOR = 12
 class Banner(QWidget):
     """Wide hero image with the Play-overlay area on top.
 
-    Small sources are upscaled to fill the banner; large sources are scaled
-    down to fit sharp and whole, with a blurred stretched copy of the artwork
-    filling any leftover space (Steam's side-blur backdrop).
+    Sources are always scaled proportionally (never distorted). Landscape
+    sources stretch up/down to cover the whole banner, cropping only the small
+    vertical excess; portrait sources scale to fit so the full image is shown,
+    with a blurred stretched copy of the artwork filling the side space
+    (Steam's side-blur backdrop).
     """
 
     def __init__(self, parent=None):
@@ -81,7 +83,7 @@ class Banner(QWidget):
         w, h = self.width(), self.height()
         src = self._source
 
-        if src.width() < w or src.height() < h:
+        if src.width() / src.height() >= w / h:
             p.drawPixmap(0, 0, art.scale_crop(src, w, h))
             return
 

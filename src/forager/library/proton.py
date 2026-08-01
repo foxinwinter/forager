@@ -24,8 +24,18 @@ PROTON_APPID = "1493710"
 PROTON_DEPOTS = ("1493711", "4862111")
 STEAMCMD_URL = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz"
 STEAMCMD_DIR = runtime_dir() / "steamcmd"
-DEPOTDL_URL = "https://github.com/SteamRE/DepotDownloader/releases/download/DepotDownloader_3.4.0/DepotDownloader-linux-x64.zip"
+DEPOTDL_TAG = "DepotDownloader_3.4.0"
 DEPOTDL_DIR = runtime_dir() / "depotdownloader"
+
+
+def depotdl_url(tag: str) -> str:
+    return (
+        "https://github.com/SteamRE/DepotDownloader/releases/download/"
+        f"{tag}/DepotDownloader-linux-x64.zip"
+    )
+
+
+DEPOTDL_URL = depotdl_url(DEPOTDL_TAG)
 STAGING_DIR = runtime_dir() / "proton.new"
 BACKUP_DIR = runtime_dir() / "proton.old"
 
@@ -146,6 +156,8 @@ def depotdownloader_bin() -> Path:
 
 def ensure_depotdownloader() -> None:
     if depotdownloader_bin().is_file():
+        if not (DEPOTDL_DIR / "version.txt").is_file():
+            (DEPOTDL_DIR / "version.txt").write_text(DEPOTDL_TAG, "utf-8")
         return
     DEPOTDL_DIR.mkdir(parents=True, exist_ok=True)
     with urllib.request.urlopen(DEPOTDL_URL, timeout=120) as resp, tempfile.NamedTemporaryFile(suffix=".zip", dir=runtime_dir()) as tmp:
@@ -154,6 +166,7 @@ def ensure_depotdownloader() -> None:
         with zipfile.ZipFile(tmp.name) as zf:
             zf.extractall(DEPOTDL_DIR)
     depotdownloader_bin().chmod(0o755)
+    (DEPOTDL_DIR / "version.txt").write_text(DEPOTDL_TAG, "utf-8")
 
 
 def steamcmd_sh() -> Path:

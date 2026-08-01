@@ -81,6 +81,38 @@ class TestDownloadWorker(QThread):
         self.done.emit(True, "Test")
 
 
+class ToolUpdateCheckWorker(QThread):
+    done = Signal(list)
+
+    def run(self):
+        from forager.library.tool_updates import check_tool_updates
+
+        if self.isInterruptionRequested():
+            return
+        try:
+            updates = check_tool_updates()
+        except Exception:
+            updates = []
+        self.done.emit(updates)
+
+
+class ToolUpdateWorker(QThread):
+    done = Signal(bool, str)
+
+    def run(self):
+        from forager.library.tool_updates import update_tool_updates
+
+        try:
+            updated = update_tool_updates()
+        except Exception as e:
+            self.done.emit(False, str(e))
+        else:
+            if updated:
+                self.done.emit(True, "Updated: " + ", ".join(updated))
+            else:
+                self.done.emit(True, "Tools are up to date")
+
+
 class ArtSignals(QObject):
     grid_ready = Signal(object)
     icon_ready = Signal(object)

@@ -14,6 +14,7 @@ class TitleBar(QWidget):
     settings_requested = Signal()
     update_proton_requested = Signal()
     test_download_requested = Signal()
+    run_updates_requested = Signal()
     back_requested = Signal()
 
     def __init__(self, parent=None):
@@ -59,6 +60,18 @@ class TitleBar(QWidget):
 
         lay.addStretch(1)
 
+        self._update_pill = QPushButton()
+        self._update_pill.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._update_pill.setStyleSheet(
+            f"QPushButton {{ color: {C.YELLOW}; background: transparent;"
+            f"border: 1px solid {C.YELLOW}; border-radius: {C.RADIUS}px;"
+            f"padding: 4px 10px; font-size: 11px; }}"
+            f"QPushButton:hover {{ background-color: {C.COLOR_3}; }}"
+        )
+        self._update_pill.hide()
+        self._update_pill.clicked.connect(self.run_updates_requested)
+        lay.addWidget(self._update_pill)
+
         self._controller_hint = QLabel("")
         self._controller_hint.setStyleSheet(
             f"color: {C.TEXT_DIM}; font-size: 11px; background: transparent; padding: 4px 8px;"
@@ -87,3 +100,12 @@ class TitleBar(QWidget):
 
     def set_controller_hint(self, text: str):
         self._controller_hint.setText(text)
+
+    def set_updates(self, outdated: list[str]) -> None:
+        if not outdated:
+            self._update_pill.hide()
+            return
+        n = len(outdated)
+        self._update_pill.setText(f"{n} update{'s' if n != 1 else ''} available")
+        self._update_pill.setToolTip("Updates ready: " + ", ".join(outdated))
+        self._update_pill.show()
