@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 )
 
 from forager.ui.theme import C
-from forager.ui.dialogs.settings_tabs import SettingsTab, _INPUT_QSS, _NOTE_QSS
+from forager.ui.dialogs.settings_tabs import SettingsTab, CollapsibleSection, _INPUT_QSS, _NOTE_QSS
 from forager.ui.dialogs.steam_web_login_dialog import SteamWebLoginDialog, clear_web_cookies
 from forager.ui.dialogs.steamgriddb_dialog import SteamGridDBTokenDialog
 
@@ -33,7 +33,7 @@ class AccountTab(SettingsTab):
         self.setStyleSheet(f"background-color: {C.BG};")
         lay = QVBoxLayout(self)
 
-        steam_box = self._group("Steam account")
+        steam_sec = CollapsibleSection("Steam account")
         actions = QWidget()
         actions.setStyleSheet("background: transparent;")
         actions_layout = QHBoxLayout(actions)
@@ -51,25 +51,25 @@ class AccountTab(SettingsTab):
         actions_layout.addWidget(self._steam_web_btn)
         actions_layout.addWidget(self._steam_signout_btn)
         actions_layout.addStretch(1)
+        steam_body = steam_sec.body_layout()
+        steam_body.addWidget(actions)
         self._steam_status = QLabel()
         self._steam_status.setWordWrap(True)
         self._steam_status.setStyleSheet(_NOTE_QSS)
-        steam_lay = QVBoxLayout(steam_box)
-        steam_lay.addWidget(actions)
-        steam_lay.addWidget(self._steam_status)
-        lay.addWidget(steam_box)
+        steam_body.addWidget(self._steam_status)
+        lay.addWidget(steam_sec)
 
         self._update_steam_status()
 
-        sdb_box = self._group("SteamGridDB")
+        sdb_sec = CollapsibleSection("SteamGridDB")
+        sdb_body = sdb_sec.body_layout()
         sdb_form = QFormLayout()
         self._token_edit = QLineEdit(steamgriddb.get_api_key() or "")
         self._token_edit.setEchoMode(QLineEdit.EchoMode.Password)
         self._token_edit.setStyleSheet(_INPUT_QSS)
         self._token_edit.setPlaceholderText("No API token set")
         sdb_form.addRow("API token", self._token_edit)
-        sdb_box.setLayout(sdb_form)
-        lay.addWidget(sdb_box)
+        sdb_body.addLayout(sdb_form)
 
         token_row = QWidget()
         token_row.setStyleSheet("background: transparent;")
@@ -87,12 +87,13 @@ class AccountTab(SettingsTab):
         self._token_get_btn.clicked.connect(self._on_get_token)
         token_layout.addWidget(self._token_get_btn)
         token_layout.addStretch(1)
-        lay.addWidget(token_row)
+        sdb_body.addWidget(token_row)
 
         self._token_status = QLabel()
         self._token_status.setWordWrap(True)
         self._token_status.setStyleSheet(_NOTE_QSS)
-        lay.addWidget(self._token_status)
+        sdb_body.addWidget(self._token_status)
+        lay.addWidget(sdb_sec)
         self._update_token_status()
 
         note = QLabel(

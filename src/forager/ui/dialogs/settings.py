@@ -24,10 +24,10 @@ QPushButton:checked {{
 """
 
 _BUTTONS_QSS = (
-    f"QPushButton {{ background-color: #ffffff; color: #0d0d0d;"
-    f" border: none; border-radius: {C.RADIUS}px; padding: 6px 16px; font-weight: 600; }}"
-    f"QPushButton:hover {{ background-color: #e6e6e6; }}"
-    f"QPushButton:default {{ background-color: #ffffff; color: #0d0d0d; border: none; }}"
+    f"QPushButton {{ background-color: {C.COLOR_2}; color: {C.TEXT};"
+    f" border: 1px solid {C.COLOR_3}; border-radius: {C.RADIUS}px; padding: 6px 16px; }}"
+    f"QPushButton:hover {{ background-color: {C.COLOR_3}; }}"
+    f"QPushButton:default {{ background-color: {C.ACCENT_1}; color: {C.BG}; border: none; }}"
 )
 
 
@@ -76,10 +76,10 @@ class SettingsDialog(QDialog):
         )
         buttons.setStyleSheet(_BUTTONS_QSS)
         buttons.button(QDialogButtonBox.StandardButton.Save).setIcon(
-            load_bundled_icon("floppy-disk", C.BG)
+            load_bundled_icon("floppy-disk", C.TEXT)
         )
         buttons.button(QDialogButtonBox.StandardButton.Cancel).setIcon(
-            load_bundled_icon("xmark", "#ff5f57")
+            load_bundled_icon("xmark", C.TEXT)
         )
         for sb in (QDialogButtonBox.StandardButton.Save, QDialogButtonBox.StandardButton.Cancel):
             buttons.button(sb).setIconSize(QSize(14, 14))

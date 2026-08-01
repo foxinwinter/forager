@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QCheckBox, QFormLayout, QGroupBox, QRadioButton,
-    QFileDialog,
+    QToolButton, QFrame, QFileDialog,
 )
 
 from forager.core.config import settings
@@ -42,6 +42,57 @@ QPushButton:hover {{ background-color: {C.COLOR_3}; }}
 """
 
 _NOTE_QSS = f"color: {C.TEXT_DIM}; font-size: 11px; background: transparent;"
+
+
+class CollapsibleSection(QWidget):
+    """A titled section whose body folds away when the header is clicked."""
+
+    def __init__(self, title: str, parent=None, collapsed: bool = True):
+        super().__init__(parent)
+        self.setStyleSheet("background: transparent;")
+        v = QVBoxLayout(self)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(0)
+
+        self._header = QToolButton()
+        self._header.setText(title)
+        self._header.setCheckable(True)
+        self._header.setChecked(not collapsed)
+        self._header.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self._header.setArrowType(
+            Qt.ArrowType.RightArrow if collapsed else Qt.ArrowType.DownArrow
+        )
+        self._header.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._header.setStyleSheet(
+            f"QToolButton {{ background: transparent; color: {C.TEXT_DIM};"
+            f" border: none; font-size: 13px; font-weight: 600; padding: 4px 2px;"
+            f" text-align: left; }}"
+            f"QToolButton:hover {{ color: {C.TEXT}; }}"
+        )
+        self._header.toggled.connect(self._toggle)
+        v.addWidget(self._header)
+
+        self._frame = QFrame()
+        self._frame.setStyleSheet(
+            f"QFrame {{ background: {C.COLOR_2}; border: 1px solid {C.COLOR_3};"
+            f" border-radius: {C.RADIUS}px; }}"
+        )
+        self._body = QVBoxLayout(self._frame)
+        self._body.setContentsMargins(10, 10, 10, 10)
+        self._body.setSpacing(8)
+        v.addWidget(self._frame)
+        self._frame.setVisible(not collapsed)
+
+    def _toggle(self, checked: bool):
+        self._header.setArrowType(
+            Qt.ArrowType.DownArrow if checked else Qt.ArrowType.RightArrow
+        )
+        self._frame.setVisible(checked)
+        if self.parentWidget() is not None:
+            self.parentWidget().updateGeometry()
+
+    def body_layout(self) -> QVBoxLayout:
+        return self._body
 
 
 class SettingsTab(QWidget):
