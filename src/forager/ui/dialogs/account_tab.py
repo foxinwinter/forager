@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
 
 from forager.ui.theme import C
 from forager.ui.dialogs.settings_tabs import SettingsTab, CollapsibleSection, _INPUT_QSS, _NOTE_QSS
-from forager.ui.dialogs.steam_web_login_dialog import SteamWebLoginDialog, clear_web_cookies
+from forager.ui.dialogs.steam_auth_dialog import SteamAuthDialog
 from forager.ui.dialogs.steamgriddb_dialog import SteamGridDBTokenDialog
 
 _PRIMARY_BTN_QSS = f"""
@@ -43,7 +43,7 @@ class AccountTab(SettingsTab):
         self._steam_web_btn = QPushButton("Sign in with Steam")
         self._steam_web_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._steam_web_btn.setStyleSheet(_PRIMARY_BTN_QSS)
-        self._steam_web_btn.clicked.connect(self._on_steam_web)
+        self._steam_web_btn.clicked.connect(self._on_steam_signin)
         self._steam_signout_btn = QPushButton("Sign out")
         self._steam_signout_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._steam_signout_btn.setStyleSheet(_SECONDARY_BTN_QSS)
@@ -97,10 +97,9 @@ class AccountTab(SettingsTab):
         self._update_token_status()
 
         note = QLabel(
-            "Sign in with the Steam login page (opens here) — Steam handles "
-            "password, Steam Guard codes and the mobile-app QR itself, so "
-            "signing in is as reliable as in your browser. Your session lives "
-            "in Steam's own session storage, never in plaintext. Proton "
+            "Sign in with the Steam mobile app (QR code) or your password plus "
+            "Steam Guard code — all handled right here, no browser needed. Your "
+            "session is stored in the system keyring, never in plaintext. Proton "
             "updates still use anonymous access."
         )
         note.setWordWrap(True)
@@ -116,9 +115,9 @@ class AccountTab(SettingsTab):
         user = steam.get_username()
         if user:
             method = steam.get_login_method()
-            if method == "web":
+            if method in ("web", "qr"):
                 self._steam_status.setText(
-                    f"Signed in as {user} (Steam web session)."
+                    f"Signed in as {user} (Steam session)."
                 )
             elif method == "password":
                 self._steam_status.setText(
@@ -129,11 +128,11 @@ class AccountTab(SettingsTab):
         else:
             self._steam_status.setText("Not signed in.")
 
-    def _on_steam_web(self):
+    def _on_steam_signin(self):
         dlg = getattr(self, "_web_dialog", None)
         if dlg is not None and dlg.isVisible():
             return
-        dlg = SteamWebLoginDialog(self.window())
+        dlg = SteamAuthDialog(self.window())
         self._web_dialog = dlg
         dlg.finished.connect(lambda _r: self._update_steam_status())
         dlg.open()
@@ -143,7 +142,6 @@ class AccountTab(SettingsTab):
 
         steam.clear_credentials()
         steam.clear_session()
-        clear_web_cookies()
         self._update_steam_status()
 
     # -- SteamGridDB token ---------------------------------------------

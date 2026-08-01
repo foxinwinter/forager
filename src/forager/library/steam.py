@@ -28,6 +28,8 @@ KEYRING_SERVICE = "forager"
 KEYRING_USERNAME_KEY = "steam_username"
 KEYRING_PASSWORD_KEY = "steam_password"
 KEYRING_LOGIN_METHOD_KEY = "steam_login_method"
+KEYRING_STEAMID_KEY = "steamid"
+KEYRING_LOGIN_SECURE_KEY = "steam_login_secure"
 
 _GUARD_MARKERS = (
     "steam guard",
@@ -68,7 +70,7 @@ def has_credentials() -> bool:
 
 
 def get_login_method() -> str | None:
-    """How the stored account signs in: "web", "password" (or None)."""
+    """How the stored account signs in: "web", "qr", "password" (or None)."""
     if _keyring is not None:
         try:
             method = _keyring.get_password(KEYRING_SERVICE, KEYRING_LOGIN_METHOD_KEY)
@@ -102,6 +104,62 @@ def set_web_username(username: str) -> None:
         pass
 
 
+def get_steamid() -> str | None:
+    if _keyring is not None:
+        try:
+            stored = _keyring.get_password(KEYRING_SERVICE, KEYRING_STEAMID_KEY)
+            if stored:
+                return stored
+        except Exception:
+            pass
+    return None
+
+
+def get_login_secure() -> str | None:
+    if _keyring is not None:
+        try:
+            stored = _keyring.get_password(KEYRING_SERVICE, KEYRING_LOGIN_SECURE_KEY)
+            if stored:
+                return stored
+        except Exception:
+            pass
+    return None
+
+
+def set_steam_session(
+    username: str,
+    method: str,
+    password: str | None = None,
+    steamid: str | None = None,
+    login_secure: str | None = None,
+) -> None:
+    """Store a signed-in Steam session.
+
+    `method` is "qr" or "password". The password is only kept for the
+    password flow (handed to DepotDownloader for downloads); the web session
+    is represented by the ``steamLoginSecure`` cookie value.
+    """
+    if _keyring is None:
+        raise RuntimeError("keyring backend unavailable")
+    _keyring.set_password(KEYRING_SERVICE, KEYRING_USERNAME_KEY, username)
+    _keyring.set_password(KEYRING_SERVICE, KEYRING_LOGIN_METHOD_KEY, method)
+    if password:
+        _keyring.set_password(KEYRING_SERVICE, KEYRING_PASSWORD_KEY, password)
+    else:
+        try:
+            _keyring.delete_password(KEYRING_SERVICE, KEYRING_PASSWORD_KEY)
+        except Exception:
+            pass
+    for key, value in ((KEYRING_STEAMID_KEY, steamid), (KEYRING_LOGIN_SECURE_KEY, login_secure)):
+        if value:
+            _keyring.set_password(KEYRING_SERVICE, key, value)
+        else:
+            try:
+                _keyring.delete_password(KEYRING_SERVICE, key)
+            except Exception:
+                pass
+
+
 def steamid_from_cookie(value: str) -> str | None:
     """Extract the SteamID from a ``steamLoginSecure`` cookie value.
 
@@ -133,7 +191,13 @@ def account_name_from_steamid(steamid: str) -> str | None:
 def clear_credentials() -> None:
     if _keyring is None:
         return
-    for key in (KEYRING_USERNAME_KEY, KEYRING_PASSWORD_KEY, KEYRING_LOGIN_METHOD_KEY):
+    for key in (
+        KEYRING_USERNAME_KEY,
+        KEYRING_PASSWORD_KEY,
+        KEYRING_LOGIN_METHOD_KEY,
+        KEYRING_STEAMID_KEY,
+        KEYRING_LOGIN_SECURE_KEY,
+    ):
         try:
             _keyring.delete_password(KEYRING_SERVICE, key)
         except Exception:
