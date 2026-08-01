@@ -8,17 +8,19 @@ from forager.ui.theme import C
 
 _BANNER_H = 420
 _BLUR_DIVISOR = 12
+_FIT_EXTRA_FRAC = 0.08
 
 
 class Banner(QWidget):
     """Wide hero image with the Play-overlay area on top.
 
-    The source pixmap is never modified. Sources wider than the banner fill the
-    full height with only their horizontal overflow centre-cropped, so the
-    bottom of the art always stays visible. Narrower sources fill the banner
-    edge-to-edge by cropping only their top overflow, keeping the art's bottom
-    visible. When ``fit`` is set, narrower sources are instead shown whole,
-    fitted to the height with a blurred backdrop filling the side space.
+    The source pixmap is never modified. The art is scaled proportionally to
+    the banner box (both dimensions adapt to the current size) and shown whole,
+    centred, with a blurred backdrop filling the leftover space, as long as the
+    extra needed to fill the box edge-to-edge stays within a small limit. When
+    the extra surpasses that limit the art fills the banner edge-to-edge with
+    its overflow cropped symmetrically (top and bottom, or left and right).
+    When ``fit`` is set the art is always shown whole and never cropped.
     """
 
     def __init__(self, parent=None):
@@ -63,29 +65,50 @@ class Banner(QWidget):
     def _paint_art(self, p: QPainter):
         w, h = self.width(), self.height()
         src = self._source
-        scaled_w = src.width() * h / src.height()
-        if scaled_w >= w:
-            # Fills the height; only horizontal overflow is centre-cropped, so
-            # the bottom of the art is always visible.
-            src_w = w * src.height() / h
-            sx = (src.width() - src_w) / 2
-            p.drawPixmap(QRectF(0, 0, w, h), src,
-                         QRectF(sx, 0, src_w, src.height()))
-            return
+        sw, sh = src.width(), src.height()
         if self._fit:
-            # Show the whole art fitted to the height, with a blurred
-            # backdrop filling the side space.
+            # Contain: the whole art is always visible, centred, backdrop
+            # filling the leftover space.
+            scale = min(w / sw, h / sh)
+            disp_w, disp_h = sw * scale, sh * scale
             p.drawPixmap(0, 0, self._backdrop(src))
-            x = (w - scaled_w) / 2
-            p.drawPixmap(QRectF(x, 0, scaled_w, h), src,
-                         QRectF(0, 0, src.width(), src.height()))
+            p.drawPixmap(QRectF((w - disp_w) / 2, (h - disp_h) / 2,
+                                disp_w, disp_h),
+                         src, QRectF(0, 0, sw, sh))
             return
-        # Narrower than the banner: fill edge-to-edge, cropping only the top
-        # overflow so the art's bottom edge always stays visible.
-        scale = w / src.width()
-        sy = src.height() - h / scale
+        limit = _FIT_EXTRA_FRAC * h
+        if sw * h >= sh * w:
+            # Source is wider (or equal) than the box: it fills the height and
+            # would overflow horizontally.
+            disp_w = sw * h / sh
+            if disp_w - w <= limit:
+                # Near-fill: whole art at height, centred, backdrop on the sides.
+                p.drawPixmap(0, 0, self._backdrop(src))
+                x = (w - disp_w) / 2
+                p.drawPixmap(QRectF(x, 0, disp_w, h), src,
+                             QRectF(0, 0, sw, sh))
+                return
+            # Edge-to-edge, cropping left and right equally.
+            src_w = w * sh / h
+            sx = (sw - src_w) / 2
+            p.drawPixmap(QRectF(0, 0, w, h), src,
+                         QRectF(sx, 0, src_w, sh))
+            return
+        # Source is narrower than the box: it fills the width and would
+        # overflow vertically.
+        disp_h = sh * w / sw
+        if disp_h - h <= limit:
+            # Near-fill: whole art at width, centred, backdrop on top/bottom.
+            p.drawPixmap(0, 0, self._backdrop(src))
+            y = (h - disp_h) / 2
+            p.drawPixmap(QRectF(0, y, w, disp_h), src,
+                         QRectF(0, 0, sw, sh))
+            return
+        # Edge-to-edge, cropping the top and bottom equally.
+        src_h = h * sw / w
+        sy = (sh - src_h) / 2
         p.drawPixmap(QRectF(0, 0, w, h), src,
-                     QRectF(0, sy, src.width(), h / scale))
+                     QRectF(0, sy, sw, src_h))
 
     def _backdrop(self, pix: QPixmap) -> QPixmap:
         small = pix.scaled(
