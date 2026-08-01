@@ -238,9 +238,7 @@ class SettingsDialog(QDialog):
         lay = QVBoxLayout(tab)
 
         form = QFormLayout()
-        self._prefix_edit = QLineEdit(settings.proton_prefix_name)
-        self._prefix_edit.setStyleSheet(_INPUT_QSS)
-        form.addRow("Shared prefix name", self._prefix_edit)
+        form.addRow("Proton", QLabel("Prefix lives inside the Proton folder"))
         box = self._group("Prefix")
         box.setLayout(form)
         lay.addWidget(box)
@@ -474,7 +472,6 @@ class SettingsDialog(QDialog):
         settings.set("steam_appcache", self._steam_cache_edit.text().strip() or str(settings.steam_appcache))
         selected = next((k for k, rb in self._size_radios.items() if rb.isChecked()), "medium")
         settings.set("display_size", selected)
-        settings.data.setdefault("proton", {})["prefix_name"] = self._prefix_edit.text().strip() or "single"
         features = settings.data.setdefault("proton", {}).setdefault("features", {})
         for name, cb in self._features.items():
             features[name] = cb.isChecked()

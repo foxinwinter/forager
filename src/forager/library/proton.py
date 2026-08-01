@@ -163,6 +163,28 @@ def _restore_symlinks(new_dir: Path, ref_dir: Path) -> None:
                     pass
 
 
+def _restore_exec_bits(new_dir: Path) -> None:
+    launcher = new_dir / "proton"
+    if launcher.is_file():
+        try:
+            launcher.chmod(0o755)
+        except OSError:
+            pass
+    for sub in ("files/bin", "files/lib/wine"):
+        base = new_dir / sub
+        if not base.is_dir():
+            continue
+        for root, _dirs, files in os.walk(base):
+            for name in files:
+                path = Path(root) / name
+                if path.is_symlink() or not path.is_file():
+                    continue
+                try:
+                    path.chmod(0o755)
+                except OSError:
+                    pass
+
+
 def update_proton(report=None) -> str | None:
     def emit(msg: str) -> None:
         if report is not None:
@@ -194,10 +216,12 @@ def update_proton(report=None) -> str | None:
 
     emit("Applying patches...")
     _restore_symlinks(STAGING_DIR, proton_dir())
+    _restore_exec_bits(STAGING_DIR)
 
-    prefix = proton_prefix_dir()
-    if prefix.exists():
-        prefix.rename(runtime_dir() / f".prefix-{prefix.name}")
+    saved_pfx = runtime_dir() / ".prefix-pfx"
+    pfx = proton_dir() / "files" / "pfx"
+    if pfx.exists():
+        pfx.rename(saved_pfx)
 
     if BACKUP_DIR.exists():
         shutil.rmtree(BACKUP_DIR)
@@ -207,9 +231,10 @@ def update_proton(report=None) -> str | None:
     if BACKUP_DIR.exists():
         shutil.rmtree(BACKUP_DIR)
 
-    saved = runtime_dir() / f".prefix-{prefix.name}"
-    if saved.exists():
-        saved.rename(proton_dir() / prefix.name)
+    if saved_pfx.exists():
+        new_pfx = proton_dir() / "files" / "pfx"
+        new_pfx.parent.mkdir(parents=True, exist_ok=True)
+        saved_pfx.rename(new_pfx)
 
     version = proton_version()
     emit(f"Proton updated ({version})")
