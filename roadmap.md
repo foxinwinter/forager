@@ -16,7 +16,7 @@ API and features may change at any time.
 
 ## Build order
 
-1. Steam account (mostly done)
+1. Steam account (done: QR + username/password sign-in, persistent refresh-token session)
 2. Full Steam library
 3. Downloading Steam games
 4. Store webview for buying

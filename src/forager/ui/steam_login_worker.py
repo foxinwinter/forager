@@ -43,3 +43,30 @@ class SteamLoginWorker(QThread):
     def cancel(self):
         self._cancel.set()
         self._codes.put(None)
+
+
+class SteamQrWorker(QThread):
+    """Runs DepotDownloader ``-qr`` on a thread, feeding the ASCII-art QR
+    lines to the GUI via ``qr_changed`` and reporting the result with ``done``."""
+
+    qr_changed = Signal(list)
+    done = Signal(bool, str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._cancel = threading.Event()
+
+    def run(self):
+        from forager.library import steam
+
+        def qr_callback(art_lines):
+            self.qr_changed.emit(list(art_lines))
+
+        try:
+            ok, detail = steam.login_with_qr(qr_callback, cancel_event=self._cancel)
+        except Exception as e:
+            ok, detail = False, str(e)
+        self.done.emit(ok, detail)
+
+    def cancel(self):
+        self._cancel.set()
