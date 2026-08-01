@@ -47,6 +47,24 @@ QPushButton:checked {{
 }}
 """
 
+NAV_TAB_QSS = f"""
+QPushButton {{
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #8b929a;
+    font-size: 14px;
+    padding: 8px 14px 5px 14px;
+}}
+QPushButton:hover {{
+    color: #ffffff;
+}}
+QPushButton:checked {{
+    color: {C.ACCENT_1};
+    border-bottom: 3px solid {C.ACCENT_1};
+}}
+"""
+
 
 def load() -> dict[str, str]:
     return {k: getattr(C, k) for k in dir(C) if k.isupper()}

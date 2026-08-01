@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QButtonGroup,
 )
 
-from forager.ui.theme import C, TAB_QSS
+from forager.ui.theme import C, NAV_TAB_QSS
 from forager.ui.icons import load_icon as load_bundled_icon
 
 
@@ -88,12 +88,9 @@ class TitleBar(QWidget):
 
     def _build_tabs(self) -> QWidget:
         bar = QWidget()
-        bar.setStyleSheet(
-            f"background-color: {C.COLOR_2}; border-radius: {C.RADIUS}px;"
-        )
         lay = QHBoxLayout(bar)
-        lay.setContentsMargins(6, 6, 6, 6)
-        lay.setSpacing(6)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
 
         group = QButtonGroup(self)
         group.setExclusive(True)
@@ -109,7 +106,7 @@ class TitleBar(QWidget):
         btn = QPushButton(text)
         btn.setCheckable(True)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.setStyleSheet(TAB_QSS)
+        btn.setStyleSheet(NAV_TAB_QSS)
         btn.clicked.connect(signal)
         group.addButton(btn)
         return btn
