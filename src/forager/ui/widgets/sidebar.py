@@ -3,7 +3,7 @@ from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel,
-    QLineEdit, QListWidget, QListWidgetItem, QFrame,
+    QLineEdit, QListWidget, QListWidgetItem, QFrame, QPushButton,
 )
 
 from forager.core.game import Game
@@ -19,6 +19,7 @@ class Sidebar(QWidget):
     game_selected = Signal(object)
     search_changed = Signal(str)
     download_clicked = Signal()
+    store_clicked = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -32,10 +33,27 @@ class Sidebar(QWidget):
         layout.setContentsMargins(12, 16, 12, 12)
         layout.setSpacing(8)
 
+        self._build_store_button(layout)
         self._build_search(layout)
         self._build_list(layout)
         self._build_download_box(layout)
         self._build_user_panel(layout)
+
+    def _build_store_button(self, layout):
+        self._store_btn = QPushButton("Store")
+        self._store_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._store_btn.setCheckable(True)
+        self._store_btn.setStyleSheet(
+            f"QPushButton {{ background-color: {C.COLOR_1}; color: {C.TEXT};"
+            f"border: none; border-radius: {C.RADIUS}px; padding: 10px 12px;"
+            f"font-size: 13px; font-weight: 600; text-align: left; }}"
+            f"QPushButton:hover {{ background-color: {C.COLOR_3}; }}"
+        )
+        self._store_btn.clicked.connect(self.store_clicked)
+        layout.addWidget(self._store_btn)
+
+    def set_store_active(self, active: bool) -> None:
+        self._store_btn.setChecked(active)
 
     def _build_search(self, layout):
         self._search = QLineEdit()

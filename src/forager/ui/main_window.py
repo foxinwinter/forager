@@ -21,6 +21,7 @@ from forager.ui.pages.game_grid import GameGrid
 from forager.ui.pages.gamepage import GamePage
 from forager.ui.dialogs.settings import SettingsDialog, resolve_card_size
 from forager.ui.pages.downloads import DownloadsPage
+from forager.ui.pages.store import StorePage
 from forager.ui.widgets.controller_nav import GamepadNavigation
 from forager.ui.workers import (
     ScanWorker, ProtonUpdateWorker, TestDownloadWorker,
@@ -125,9 +126,13 @@ class MainWindow(QMainWindow):
         self._downloads_page = DownloadsPage()
         self._content.addWidget(self._downloads_page)
 
+        self._store_page = StorePage()
+        self._content.addWidget(self._store_page)
+
         self._sidebar.game_selected.connect(self._open_game)
         self._sidebar.search_changed.connect(self._on_search_changed)
         self._sidebar.download_clicked.connect(self._show_downloads)
+        self._sidebar.store_clicked.connect(self._show_store)
         self._downloads_page.cancel_requested.connect(self._cancel_proton_update)
         self._titlebar.run_updates_requested.connect(self._run_tool_updates)
         self._gamepage.play.connect(self._launch_game)
@@ -236,6 +241,12 @@ class MainWindow(QMainWindow):
     def _show_home(self):
         self._content.setCurrentWidget(self._home)
         self._titlebar.set_back_enabled(False)
+        self._sidebar.set_store_active(False)
+
+    def _show_store(self):
+        self._content.setCurrentWidget(self._store_page)
+        self._titlebar.set_back_enabled(True)
+        self._sidebar.set_store_active(True)
 
     def _show_downloads(self):
         self._content.setCurrentWidget(self._downloads_page)
