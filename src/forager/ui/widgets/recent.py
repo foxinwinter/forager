@@ -126,6 +126,10 @@ class RecentPlayedRow(QWidget):
 
         self._empty.setVisible(not self._items)
         self._scroll.setVisible(bool(self._items))
+        if self._items:
+            self._scroll.setFixedHeight(
+                max(item["frame"].sizeHint().height() for item in self._items)
+            )
 
     def _build_item(self, game: Game) -> dict:
         frame = QWidget()
