@@ -82,6 +82,31 @@ pip install forager-<version>-py3-none-any.whl
 forager
 ```
 
+#### Install as a system-wide executable (`/usr/bin/forager`)
+
+The package defines a `forager` console script, so installing it into the
+system Python puts the command in `/usr/bin/forager`. Install the runtime
+dependencies with your package manager first, then:
+
+```sh
+# Arch Linux example: runtime deps via pacman
+sudo pacman -S python-pyside6 python-evdev python-keyring python-pillow
+
+git clone https://github.com/foxinwinter/forager.git
+cd forager
+sudo python -m pip install --break-system-packages --no-deps .
+forager
+```
+
+- `--break-system-packages` is required on Arch (PEP 668 externally-managed
+  Python).
+- `--no-deps` keeps pacman in charge of the dependencies, so pip never pulls a
+  conflicting PySide6 from PyPI.
+- The same works with a release wheel:
+  `sudo python -m pip install --break-system-packages --no-deps forager-<version>-py3-none-any.whl`.
+
+Alternatively, uninstall it with `sudo python -m pip uninstall forager`.
+
 ## Configuration
 
 Settings are stored in `~/.config/forager/settings.json`; cover art caches live
