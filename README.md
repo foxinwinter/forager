@@ -123,3 +123,10 @@ Environment overrides:
 ## License
 
 AGPL-3.0
+
+Bundled third-party assets carry their own licenses (included in the package
+under `forager/resources/`): the UI icons are from
+[Iconoir](https://iconoir.com) (MIT, © 2021 Luca Burgio,
+`resources/icons/ICONOIR-LICENSE.txt`) and the placeholder-art font is
+[VT323](https://github.com/google/fonts/tree/main/ofl/vt323) (SIL OFL 1.1,
+`resources/fonts/OFL.txt`).
