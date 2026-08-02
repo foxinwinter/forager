@@ -17,6 +17,7 @@ from forager.library.playtime import PlaytimeStore, format_playtime, game_key
 from forager.services import art
 from forager.ui.theme import C
 from forager.ui.widgets.game_card import GameCard
+from forager.ui.widgets.card_hover import CardHoverPopup
 
 _RECENT_CARD_W = 120
 _RECENT_CARD_H = 180
@@ -80,6 +81,8 @@ class RecentPlayedRow(QWidget):
         self._scroll.setWidget(self._host)
         v.addWidget(self._scroll)
 
+        self._hover_popup = CardHoverPopup(self._scroll.viewport())
+
     # -- public API -----------------------------------------------------
 
     def set_games(self, games: list[Game]):
@@ -100,6 +103,7 @@ class RecentPlayedRow(QWidget):
         for item in self._items:
             if item["game"] == game:
                 item["card"].set_art(pix)
+                self._hover_popup.refresh()
                 return
 
     def cards(self) -> list[GameCard]:
@@ -116,6 +120,7 @@ class RecentPlayedRow(QWidget):
         return ranked[:_MAX_RECENT]
 
     def _rebuild(self):
+        self._hover_popup.hide_effect()
         for item in self._items:
             item["frame"].setParent(None)
             item["frame"].deleteLater()
@@ -142,6 +147,7 @@ class RecentPlayedRow(QWidget):
             game, card_w=self._card_w, card_h=self._card_h, fit_art=True
         )
         card.clicked.connect(self.game_clicked)
+        card.hover_changed.connect(self._on_card_hover)
         v.addWidget(card, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         name = self._elide(game.name.replace("/", " / "))
@@ -161,6 +167,12 @@ class RecentPlayedRow(QWidget):
         card.set_art(art.load_grid(game, allow_network=False))
         self._row.insertWidget(self._row.count() - 1, frame)
         return {"frame": frame, "card": card, "game": game}
+
+    def _on_card_hover(self, card, hovered: bool):
+        if hovered:
+            self._hover_popup.show_for(card)
+        else:
+            self._hover_popup.hide_effect()
 
     def _elide(self, text: str) -> str:
         font = QFont("Roboto", 12)

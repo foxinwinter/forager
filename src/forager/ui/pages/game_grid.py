@@ -13,6 +13,7 @@ from forager.core.game import Game
 from forager.services import art
 from forager.ui.theme import C
 from forager.ui.widgets.game_card import GameCard
+from forager.ui.widgets.card_hover import CardHoverPopup
 
 _GRID_MARGIN = 8
 _GRID_MIN_GAP = 12
@@ -64,6 +65,11 @@ class GameGrid(QWidget):
         self._grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self._scroll.setWidget(self._grid_host)
         v.addWidget(self._scroll, stretch=1)
+
+        self._hover_popup = CardHoverPopup(self._scroll.viewport())
+        self._scroll.verticalScrollBar().valueChanged.connect(
+            self._hover_popup.reposition
+        )
 
     # -- public API -----------------------------------------------------
 
@@ -123,12 +129,14 @@ class GameGrid(QWidget):
         for i, card in enumerate(self._cards):
             card.set_focused(i == index)
         self._card_index = index
+        self._hover_popup.show_for(self._cards[index])
         self._scroll.ensureWidgetVisible(self._cards[index], 40, 40)
 
     def set_card_art(self, game: Game, pix):
         for card in self._cards:
             if card.game == game:
                 card.set_art(pix)
+                self._hover_popup.refresh()
                 return
 
     # -- internals ------------------------------------------------------
@@ -143,6 +151,7 @@ class GameGrid(QWidget):
         return out
 
     def _rebuild_cards(self):
+        self._hover_popup.hide_effect()
         for card in self._cards:
             self._grid.removeWidget(card)
             card.deleteLater()
@@ -153,6 +162,7 @@ class GameGrid(QWidget):
             card = GameCard(game, card_w=self._card_w, card_h=self._card_h)
             card.clicked.connect(self.card_clicked)
             card.activated.connect(self.card_activated)
+            card.hover_changed.connect(self._on_card_hover)
             self._cards.append(card)
 
         self._empty_label.setVisible(len(self._cards) == 0)
@@ -165,7 +175,14 @@ class GameGrid(QWidget):
         for card in self._cards:
             card.set_art(art.load_grid(card.game, allow_network=False))
 
+    def _on_card_hover(self, card, hovered: bool):
+        if hovered:
+            self._hover_popup.show_for(card)
+        else:
+            self._hover_popup.hide_effect()
+
     def _relayout_cards(self):
+        self._hover_popup.hide_effect()
         if not self._cards:
             return
         for i in reversed(range(self._grid.count())):

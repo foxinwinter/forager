@@ -1,6 +1,6 @@
 from __future__ import annotations
 from PySide6.QtCore import Qt, Signal, QRectF
-from PySide6.QtGui import QColor, QPen, QPainter, QPainterPath, QFont, QFontMetrics, QPixmap, QLinearGradient
+from PySide6.QtGui import QColor, QPainter, QPainterPath, QFont, QFontMetrics, QPixmap, QLinearGradient
 from PySide6.QtWidgets import QWidget
 
 from forager.core.game import Game
@@ -15,6 +15,7 @@ _RADIUS = C.RADIUS
 class GameCard(QWidget):
     clicked = Signal(object)
     activated = Signal(object)
+    hover_changed = Signal(object, bool)
 
     def __init__(
         self,
@@ -70,13 +71,6 @@ class GameCard(QWidget):
             self._paint_overlay(p, w, h)
 
         p.setClipping(False)
-        p.setBrush(Qt.BrushStyle.NoBrush)
-        if self._focused:
-            p.setPen(QPen(QColor(C.ACCENT_1), 2))
-            p.drawRoundedRect(rect, _RADIUS, _RADIUS)
-        elif self.underMouse():
-            p.setPen(QPen(QColor(75, 137, 239, 150), 1))
-            p.drawRoundedRect(rect, _RADIUS, _RADIUS)
 
     def _fallback_art(self) -> QPixmap | None:
         size = (self.width(), self.height())
@@ -146,10 +140,12 @@ class GameCard(QWidget):
 
     def enterEvent(self, event):
         super().enterEvent(event)
+        self.hover_changed.emit(self, True)
         self.update()
 
     def leaveEvent(self, event):
         super().leaveEvent(event)
+        self.hover_changed.emit(self, False)
         self.update()
 
     def mousePressEvent(self, event):
