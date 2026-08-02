@@ -1,16 +1,17 @@
 """Steam-style hover pop for library cards.
 
-Mirrors the Steam client's card hover (as themed by SpaceTheme): a smooth
-~0.2s ease transition that scales the hovered card up (~4%) and lifts it with
-a soft dark drop shadow (``0px 4px 8px rgb(0 0 0 / 25%)``) over its
-neighbours — no outline/glow ring. A faint diagonal band of light (the Steam
-capsule "shine": ``linear-gradient(315deg, …)``) fades in over the cover,
-fading with the same ease as the lift.
+Mirrors the Steam client's card hover (as themed by SpaceTheme / the
+SteamUI skins that restyle the real client): a smooth ~0.2s ease transition
+that lifts the hovered card over its neighbours with a soft dark drop shadow
+(``box-shadow: 0px 14px 12px 0px rgb(0 0 0 / 30%)``). On the cover itself the
+tile **brightens** (``filter: brightness(1.1)``) — the "slight shine" — and a
+faint diagonal glare sweeps in from the tile's **upper-right corner** once, the
+classic Steam shimmer. No outline/glow ring.
 
-The popup is a child of the scroll *viewport* (not the card or its host) so
-the scaled art can overflow the card's own bounds and the host's rect without
-being clipped by either — it only clips at the visible viewport edge, like
-Steam does at the window edge. It is transparent to mouse events so the card
+The popup is a child of the scroll *viewport* (not the card or its host) so the
+scaled art can overflow the card's own bounds and the host's rect without
+being clipped by either, and it is clamped to stay fully inside the viewport so
+nothing clips at the window edge. It is transparent to mouse events so the card
 underneath keeps normal hover/click behaviour.
 """
 from __future__ import annotations
@@ -21,16 +22,21 @@ from PySide6.QtWidgets import QGraphicsDropShadowEffect, QWidget
 from forager.ui.theme import C
 
 _SCALE = 1.04
-_RADIUS = C.RADIUS
 _TRANSITION_MS = 200
 _SHADOW_COLOR = QColor(0, 0, 0, 110)
 _SHADOW_BLUR = 16
 _SHADOW_OFFSET = (0, 3)
-_SHINE_PEAK = 62
+_EDGE_INSET = 6
+_BRIGHTNESS_ALPHA = 42
+_GLARE_PEAK = 30
+_GLARE_START = -0.15
+_GLARE_END = 1.15
+_GLARE_WIDTH = 0.12
+_RADIUS = C.RADIUS
 
 
 class CardHoverPopup(QWidget):
-    """Overlay that animates one card scaled up with a soft shadow behind it."""
+    """Overlay that animates one card lifted, brightened, with a glare sweep."""
 
     def __init__(self, viewport: QWidget, parent=None):
         super().__init__(viewport)
@@ -55,7 +61,7 @@ class CardHoverPopup(QWidget):
         self.update()
 
     def show_for(self, card):
-        """Render *card* scaled up, animate it in over the card (viewport coords)."""
+        """Render *card* lifted, animate it in over the card (viewport coords)."""
         self._card = card
         w, h = card.width(), card.height()
         dpr = card.window().devicePixelRatioF()
@@ -72,7 +78,12 @@ class CardHoverPopup(QWidget):
         self._anim.start()
 
     def _place(self):
-        """Re-position over the card in viewport coordinates (card moved / scrolled)."""
+        """Position over the card in viewport coords, clamped so nothing clips.
+
+        The popup is centred over its card; when the card sits near a viewport
+        edge the centred geometry would hang outside and get clipped, so it is
+        clamped (with a small inset) to stay fully visible.
+        """
         if self._card is None:
             return
         w, h = self._card.width(), self._card.height()
@@ -80,7 +91,11 @@ class CardHoverPopup(QWidget):
         nh = int(round(h * _SCALE))
         viewport = self.parentWidget()
         p = self._card.mapTo(viewport, QPoint(0, 0))
-        self.setGeometry(p.x() - (nw - w) // 2, p.y() - (nh - h) // 2, nw, nh)
+        x = p.x() - (nw - w) // 2
+        y = p.y() - (nh - h) // 2
+        x = max(_EDGE_INSET, min(x, viewport.width() - nw - _EDGE_INSET))
+        y = max(_EDGE_INSET, min(y, viewport.height() - nh - _EDGE_INSET))
+        self.setGeometry(x, y, nw, nh)
 
     def reposition(self):
         """Update geometry after the host scrolled or re-laid out."""
@@ -113,11 +128,12 @@ class CardHoverPopup(QWidget):
         self._paint_shine(p, QRectF(x, y, nw, nh))
 
     def _paint_shine(self, p: QPainter, rect: QRectF):
-        """Steam's capsule shine: a faint diagonal band of light over the cover.
+        """Steam's cover shine: brighten + a glare sweep from the upper-right.
 
-        A ``linear-gradient(315deg, …)`` highlight centered on the cover's
-        diagonal with soft edges. It fades in with the popup's ease so it
-        brightens as the card lifts, exactly like the Steam tile.
+        The whole cover lifts in brightness (Steam's ``brightness(1.1)``),
+        and a faint diagonal band of light sweeps once from the tile's
+        upper-right corner towards the lower-left, clipped to the cover's
+        rounded corners. Both fade in with the popup's ease.
         """
         a = self._progress
         if a <= 0.0:
@@ -127,12 +143,16 @@ class CardHoverPopup(QWidget):
         clip.addRoundedRect(rect.adjusted(0.5, 0.5, -0.5, -0.5), radius, radius)
         p.save()
         p.setClipPath(clip)
-        peak = int(round(_SHINE_PEAK * a))
-        grad = QLinearGradient(rect.topLeft(), rect.bottomRight())
-        grad.setColorAt(0.00, QColor(255, 255, 255, 0))
-        grad.setColorAt(0.40, QColor(255, 255, 255, 0))
-        grad.setColorAt(0.50, QColor(255, 255, 255, peak))
-        grad.setColorAt(0.60, QColor(255, 255, 255, 0))
-        grad.setColorAt(1.00, QColor(255, 255, 255, 0))
+        p.fillRect(rect, QColor(255, 255, 255, int(round(_BRIGHTNESS_ALPHA * a))))
+
+        pos = _GLARE_START + (_GLARE_END - _GLARE_START) * a
+        peak = int(round(_GLARE_PEAK * a))
+        lo = min(1.0, max(0.0, pos - _GLARE_WIDTH))
+        mid = min(1.0, max(0.0, pos))
+        hi = min(1.0, max(0.0, pos + _GLARE_WIDTH))
+        grad = QLinearGradient(rect.topRight(), rect.bottomLeft())
+        grad.setColorAt(lo, QColor(255, 255, 255, 0))
+        grad.setColorAt(mid, QColor(255, 255, 255, peak))
+        grad.setColorAt(hi, QColor(255, 255, 255, 0))
         p.fillRect(rect, grad)
         p.restore()
