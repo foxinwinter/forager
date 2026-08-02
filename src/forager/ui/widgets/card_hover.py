@@ -3,7 +3,9 @@
 Mirrors the Steam client's card hover (as themed by SpaceTheme): a smooth
 ~0.2s ease transition that scales the hovered card up (~4%) and lifts it with
 a soft dark drop shadow (``0px 4px 8px rgb(0 0 0 / 25%)``) over its
-neighbours — no outline/glow ring.
+neighbours — no outline/glow ring. A faint diagonal band of light (the Steam
+capsule "shine": ``linear-gradient(315deg, …)``) fades in over the cover,
+fading with the same ease as the lift.
 
 The popup is a child of the scroll *viewport* (not the card or its host) so
 the scaled art can overflow the card's own bounds and the host's rect without
@@ -12,15 +14,19 @@ Steam does at the window edge. It is transparent to mouse events so the card
 underneath keeps normal hover/click behaviour.
 """
 from __future__ import annotations
-from PySide6.QtCore import Qt, QPoint, QEasingCurve, QVariantAnimation
-from PySide6.QtGui import QColor, QPainter, QPixmap
+from PySide6.QtCore import Qt, QPoint, QRectF, QEasingCurve, QVariantAnimation
+from PySide6.QtGui import QColor, QPainter, QPainterPath, QPixmap, QLinearGradient
 from PySide6.QtWidgets import QGraphicsDropShadowEffect, QWidget
 
+from forager.ui.theme import C
+
 _SCALE = 1.04
+_RADIUS = C.RADIUS
 _TRANSITION_MS = 200
 _SHADOW_COLOR = QColor(0, 0, 0, 110)
 _SHADOW_BLUR = 16
 _SHADOW_OFFSET = (0, 3)
+_SHINE_PEAK = 62
 
 
 class CardHoverPopup(QWidget):
@@ -104,3 +110,29 @@ class CardHoverPopup(QWidget):
         x = (self.width() - nw) // 2
         y = (self.height() - nh) // 2
         p.drawPixmap(x, y, nw, nh, self._base)
+        self._paint_shine(p, QRectF(x, y, nw, nh))
+
+    def _paint_shine(self, p: QPainter, rect: QRectF):
+        """Steam's capsule shine: a faint diagonal band of light over the cover.
+
+        A ``linear-gradient(315deg, …)`` highlight centered on the cover's
+        diagonal with soft edges. It fades in with the popup's ease so it
+        brightens as the card lifts, exactly like the Steam tile.
+        """
+        a = self._progress
+        if a <= 0.0:
+            return
+        radius = _RADIUS * _SCALE
+        clip = QPainterPath()
+        clip.addRoundedRect(rect.adjusted(0.5, 0.5, -0.5, -0.5), radius, radius)
+        p.save()
+        p.setClipPath(clip)
+        peak = int(round(_SHINE_PEAK * a))
+        grad = QLinearGradient(rect.topLeft(), rect.bottomRight())
+        grad.setColorAt(0.00, QColor(255, 255, 255, 0))
+        grad.setColorAt(0.40, QColor(255, 255, 255, 0))
+        grad.setColorAt(0.50, QColor(255, 255, 255, peak))
+        grad.setColorAt(0.60, QColor(255, 255, 255, 0))
+        grad.setColorAt(1.00, QColor(255, 255, 255, 0))
+        p.fillRect(rect, grad)
+        p.restore()
