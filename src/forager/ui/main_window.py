@@ -36,6 +36,11 @@ _WORKER_ATTRS = (
     "_worker", "_test_worker", "_update_runner", "_proton_worker",
 )
 
+_GRID_PANEL_PAD = 14 + 16          # panel top + bottom padding
+_GRID_EMPTY_PANEL_H = 90           # panel height while "No games found."
+_PAGE_V_MARGIN = 18 + 18           # home page top + bottom margins
+_PAGE_V_SPACING = 16               # gap between the recent and grid panels
+
 _orphaned_workers: set = set()
 
 
@@ -172,10 +177,33 @@ class MainWindow(QMainWindow):
         self._grid = GameGrid(self._card_w, self._card_h)
         self._grid.card_clicked.connect(self._open_game)
         self._grid.card_activated.connect(self._launch_game)
-        grid_layout.addWidget(self._grid, stretch=1)
-        v.addWidget(grid_panel, stretch=1)
+        self._grid.layout_changed.connect(self._update_grid_panel)
+        grid_layout.addWidget(self._grid)
+        v.addWidget(grid_panel)
+        v.addStretch(1)
+        self._grid_panel = grid_panel
+        self._recent_panel = recent_panel
+
+        self._update_grid_panel()
 
         return page
+
+    def _update_grid_panel(self):
+        """Keep the grid shelf only as tall as its cards need it to be."""
+        if not hasattr(self, "_grid_panel"):
+            return
+        avail = max(
+            1,
+            self._content.height()
+            - self._recent_panel.height()
+            - _PAGE_V_MARGIN
+            - _PAGE_V_SPACING,
+        )
+        if self._grid.count() == 0:
+            height = min(_GRID_EMPTY_PANEL_H, avail)
+        else:
+            height = min(self._grid.needed_height() + _GRID_PANEL_PAD, avail)
+        self._grid_panel.setFixedHeight(max(40, height))
 
     def _open_settings(self):
         self._games_dir_before = str(settings.games_dir)
@@ -311,10 +339,12 @@ class MainWindow(QMainWindow):
             return
         self._playtime.begin(game, proc)
         self._recent.refresh()
+        self._update_grid_panel()
 
     def _play_tick(self):
         if self._playtime.tick():
             self._recent.refresh()
+            self._update_grid_panel()
 
     def _update_proton(self):
         self._proton_cancel = threading.Event()

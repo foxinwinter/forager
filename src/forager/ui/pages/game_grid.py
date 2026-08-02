@@ -22,6 +22,7 @@ _GRID_V_GAP = 16
 class GameGrid(QWidget):
     card_clicked = Signal(object)
     card_activated = Signal(object)
+    layout_changed = Signal()
 
     def __init__(self, card_w: int, card_h: int, parent=None):
         super().__init__(parent)
@@ -86,6 +87,17 @@ class GameGrid(QWidget):
     def count(self) -> int:
         return len(self._cards)
 
+    def needed_height(self) -> int:
+        """Height the card grid needs right now (0 when empty)."""
+        count = len(self._cards)
+        if count == 0:
+            return 0
+        cols = self._grid.columnCount()
+        if cols <= 0:
+            return 0
+        rows = (count + cols - 1) // cols
+        return rows * self._card_h + (rows - 1) * _GRID_V_GAP
+
     def current_index(self) -> int:
         return self._card_index
 
@@ -147,6 +159,7 @@ class GameGrid(QWidget):
         self._scroll.setVisible(len(self._cards) > 0)
         self._relayout_cards()
         self._load_card_art()
+        self.layout_changed.emit()
 
     def _load_card_art(self):
         for card in self._cards:
@@ -187,6 +200,8 @@ class GameGrid(QWidget):
 
         for i, card in enumerate(self._cards):
             self._grid.addWidget(card, i // cols, i % cols)
+
+        self.layout_changed.emit()
 
     def eventFilter(self, obj, event):
         if obj is self._scroll.viewport() and event.type() == QEvent.Type.Resize:
