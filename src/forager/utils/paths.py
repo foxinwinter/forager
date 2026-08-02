@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 
-from forager.core.config import default_cache_dir, settings
+from forager.core.config import default_cache_dir, default_config_dir, settings
 
 
 def cache_dir() -> Path:
@@ -52,3 +52,7 @@ def proton_prefix_dir() -> Path:
 
 def rtp_source_dir() -> Path:
     return runtime_dir() / "rtp"
+
+
+def playtime_file() -> Path:
+    return default_config_dir() / "playtime.json"

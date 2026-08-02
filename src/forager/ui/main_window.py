@@ -3,20 +3,22 @@ import atexit
 import threading
 from shiboken6 import isValid
 from PySide6.QtCore import Qt, QThread, QTimer
-from PySide6.QtGui import QFont, QIcon
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
-    QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QMessageBox,
+    QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QMessageBox,
     QStackedWidget, QApplication,
 )
 
 from forager.core.game import Game
 from forager.core.config import settings
 from forager.library.launcher import launch
+from forager.library.playtime import PlaytimeTracker
 from forager.core.controller import ControllerPoller
 from forager.services.pixmap_utils import bytes_to_pixmap
 from forager.ui.theme import C
 from forager.ui.widgets.sidebar import Sidebar
 from forager.ui.widgets.titlebar import TitleBar
+from forager.ui.widgets.recent import RecentPlayedRow
 from forager.ui.pages.game_grid import GameGrid
 from forager.ui.pages.gamepage import GamePage
 from forager.ui.dialogs.settings import SettingsDialog, resolve_card_size
@@ -76,12 +78,17 @@ class MainWindow(QMainWindow):
         self._hero_done: set = set()
         self._art_stop = threading.Event()
         self._hero_stop = threading.Event()
+        self._playtime = PlaytimeTracker()
 
         self._setup_ui()
         self._wire_controller()
         app = QApplication.instance()
         if app is not None:
             app.aboutToQuit.connect(self._shutdown_threads)
+        self._play_timer = QTimer(self)
+        self._play_timer.setInterval(15_000)
+        self._play_timer.timeout.connect(self._play_tick)
+        self._play_timer.start()
         QTimer.singleShot(50, self._load_games)
         QTimer.singleShot(100, self._check_tool_updates)
     # -- UI ------------------------------------------------------------
@@ -146,10 +153,9 @@ class MainWindow(QMainWindow):
         v.setContentsMargins(24, 18, 24, 18)
         v.setSpacing(12)
 
-        header = QLabel("Library")
-        header.setFont(QFont("Roboto", 22, QFont.Weight.Bold))
-        header.setStyleSheet(f"color: {C.TEXT}; background: transparent;")
-        v.addWidget(header)
+        self._recent = RecentPlayedRow(self._playtime.store)
+        self._recent.game_clicked.connect(self._open_game)
+        v.addWidget(self._recent)
 
         self._grid = GameGrid(self._card_w, self._card_h)
         self._grid.card_clicked.connect(self._open_game)
@@ -205,6 +211,7 @@ class MainWindow(QMainWindow):
     def _finish_loading(self):
         self._sidebar.set_games(self._games)
         self._grid.set_games(self._games)
+        self._recent.set_games(self._games)
         self._start_art_worker()
 
     def _start_art_worker(self):
@@ -226,6 +233,7 @@ class MainWindow(QMainWindow):
         if pix is None:
             return
         self._grid.set_card_art(game, pix)
+        self._recent.set_card_art(game, pix)
 
     def _on_icon_ready(self, payload):
         game, data = payload
@@ -236,6 +244,7 @@ class MainWindow(QMainWindow):
 
     def _on_search_changed(self, text):
         self._grid.set_search(text)
+        self._recent.set_search(text)
 
     # -- navigation ----------------------------------------------------
 
@@ -283,9 +292,16 @@ class MainWindow(QMainWindow):
 
     def _launch_game(self, game: Game):
         try:
-            launch(game)
+            proc = launch(game)
         except Exception as e:
             QMessageBox.critical(self, "Launch Error", f"Failed to launch {game.name}:\n{e}")
+            return
+        self._playtime.begin(game, proc)
+        self._recent.refresh()
+
+    def _play_tick(self):
+        if self._playtime.tick():
+            self._recent.refresh()
 
     def _update_proton(self):
         self._proton_cancel = threading.Event()
@@ -410,6 +426,7 @@ class MainWindow(QMainWindow):
                     _orphan_worker(worker)
         self._art_stop.set()
         self._hero_stop.set()
+        self._playtime.flush()
 
     def _wire_controller(self):
         self._nav = GamepadNavigation(
