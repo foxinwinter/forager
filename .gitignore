@@ -2,7 +2,6 @@
 __pycache__
 *.pyc
 *.kate-swp
-/run.sh
 .pytest_cache
 
 # --- Build / Packaging --- #

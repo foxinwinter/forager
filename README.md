@@ -23,7 +23,7 @@ A Steam-style game launcher for your local game library.
 
 ## Roadmap
 
-See [roadmap.md](roadmap.md) for the plan towards `v1.0.0` (full Steam library,
+See [docs/roadmap.md](docs/roadmap.md) for the plan towards `v1.0.0` (full Steam library,
 Steam downloads, store webview, torrenting, Steam achievements, Epic Games, GOG).
 
 ## Layout
