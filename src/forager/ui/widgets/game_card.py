@@ -104,12 +104,10 @@ class GameCard(QWidget):
                     pix,
                 )
             else:
-                p.drawPixmap(
-                    draw_rect,
-                    art.scale_crop(
-                        self._art, round(draw_rect.width()), round(draw_rect.height())
-                    ),
+                pix = art.scale_crop(
+                    self._art, round(draw_rect.width()), round(draw_rect.height())
                 )
+                p.drawPixmap(draw_rect, pix, QRectF(pix.rect()))
         else:
             self._paint_placeholder(p, w, h, draw_rect)
 
@@ -164,7 +162,7 @@ class GameCard(QWidget):
     def _paint_placeholder(self, p: QPainter, w: int, h: int, target: QRectF):
         pix = self._fallback_art()
         if pix is not None and not pix.isNull():
-            p.drawPixmap(target, pix)
+            p.drawPixmap(target, pix, QRectF(pix.rect()))
             return
         self._paint_simple_placeholder(p, w, h)
 
