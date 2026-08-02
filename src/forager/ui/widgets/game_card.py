@@ -1,6 +1,17 @@
 from __future__ import annotations
-from PySide6.QtCore import Qt, Signal, QRectF
-from PySide6.QtGui import QColor, QPen, QPainter, QPainterPath, QFont, QFontMetrics, QPixmap, QLinearGradient
+from PySide6.QtCore import Qt, Signal, QRectF, QTimer
+from PySide6.QtGui import (
+    QColor,
+    QPen,
+    QPainter,
+    QPainterPath,
+    QFont,
+    QFontMetrics,
+    QPixmap,
+    QLinearGradient,
+    QBrush,
+    QConicalGradient,
+)
 from PySide6.QtWidgets import QWidget
 
 from forager.core.game import Game
@@ -10,6 +21,18 @@ from forager.ui.theme import C
 CARD_W = 232
 CARD_H = 348
 _RADIUS = C.RADIUS
+
+_HOVER_ZOOM = 0.045  # cover scales to 1.045 while hovered
+_HOVER_DURATION = 0.18  # seconds for the fade in/out
+_COMET_PERIOD = 1.0  # seconds per border orbit
+
+
+def _alpha(color: QColor, a: int) -> QColor:
+    return QColor(color.red(), color.green(), color.blue(), int(a))
+
+
+def _ease_out_cubic(t: float) -> float:
+    return 1.0 - (1.0 - t) ** 3
 
 
 class GameCard(QWidget):
@@ -35,6 +58,12 @@ class GameCard(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
 
+        self._hprog = 0.0  # linear hover progress 0..1 (animated)
+        self._hover_clock = 0.0  # seconds while hovered (drives the comet orbit)
+        self._hover_anim = QTimer(self)
+        self._hover_anim.setInterval(16)
+        self._hover_anim.timeout.connect(self._hover_tick)
+
     def set_art(self, pix: QPixmap | None):
         self._art = pix
         self.update()
@@ -42,9 +71,16 @@ class GameCard(QWidget):
     def _overlay_visible(self) -> bool:
         return self._focused or self.underMouse()
 
+    def _hover_wanted(self) -> bool:
+        return self._focused or self.underMouse()
+
+    def _hover_level(self) -> float:
+        return _ease_out_cubic(self._hprog)
+
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
 
         w, h = self.width(), self.height()
         rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
@@ -53,30 +89,70 @@ class GameCard(QWidget):
         p.setClipPath(path)
 
         p.fillRect(rect, QColor(C.COLOR_3))
+
+        t = self._hover_level()
+        draw_rect = self._draw_rect(rect, t)
+
         if self._art is not None and not self._art.isNull():
             if self._fit_art:
-                pix = art.scaled(self._art, w, h)
+                pix = art.scaled(
+                    self._art, round(draw_rect.width()), round(draw_rect.height())
+                )
                 p.drawPixmap(
-                    (w - pix.width()) // 2,
-                    (h - pix.height()) // 2,
+                    round(draw_rect.left() + (draw_rect.width() - pix.width()) / 2),
+                    round(draw_rect.top() + (draw_rect.height() - pix.height()) / 2),
                     pix,
                 )
             else:
-                p.drawPixmap(self.rect(), art.scale_crop(self._art, w, h))
+                p.drawPixmap(
+                    draw_rect,
+                    art.scale_crop(
+                        self._art, round(draw_rect.width()), round(draw_rect.height())
+                    ),
+                )
         else:
-            self._paint_placeholder(p, w, h)
+            self._paint_placeholder(p, w, h, draw_rect)
 
         if self._overlay_visible():
             self._paint_overlay(p, w, h)
 
         p.setClipping(False)
         p.setBrush(Qt.BrushStyle.NoBrush)
+        if t > 0:
+            self._paint_hover_border(p, rect, t)
+
         if self._focused:
             p.setPen(QPen(QColor(C.ACCENT_1), 2))
             p.drawRoundedRect(rect, _RADIUS, _RADIUS)
-        elif self.underMouse():
-            p.setPen(QPen(QColor(75, 137, 239, 150), 1))
-            p.drawRoundedRect(rect, _RADIUS, _RADIUS)
+
+    def _draw_rect(self, rect: QRectF, t: float) -> QRectF:
+        z = 1.0 + _HOVER_ZOOM * t
+        if abs(z - 1.0) < 1e-4:
+            return rect
+        nw, nh = rect.width() * z, rect.height() * z
+        return QRectF(
+            rect.center().x() - nw / 2.0,
+            rect.center().y() - nh / 2.0,
+            nw,
+            nh,
+        )
+
+    def _paint_hover_border(self, p: QPainter, rect: QRectF, t: float):
+        base = QColor(C.ACCENT_1)
+
+        pen = QPen(_alpha(base, int(55 * t)))
+        pen.setWidth(2)
+        p.setPen(pen)
+        p.drawRoundedRect(rect, _RADIUS, _RADIUS)
+
+        angle = (self._hover_clock % _COMET_PERIOD) / _COMET_PERIOD * 360.0
+        cg = QConicalGradient(rect.center(), angle)
+        cg.setColorAt(0.0, _alpha(base, int(235 * t)))
+        cg.setColorAt(0.14, _alpha(base, 0))
+        cg.setColorAt(1.0, _alpha(base, 0))
+        pen = QPen(QBrush(cg), 3.0)
+        p.setPen(pen)
+        p.drawRoundedRect(rect, _RADIUS, _RADIUS)
 
     def _fallback_art(self) -> QPixmap | None:
         size = (self.width(), self.height())
@@ -85,10 +161,10 @@ class GameCard(QWidget):
             self._fallback_size = size
         return self._fallback
 
-    def _paint_placeholder(self, p: QPainter, w: int, h: int):
+    def _paint_placeholder(self, p: QPainter, w: int, h: int, target: QRectF):
         pix = self._fallback_art()
         if pix is not None and not pix.isNull():
-            p.drawPixmap(self.rect(), pix)
+            p.drawPixmap(target, pix)
             return
         self._paint_simple_placeholder(p, w, h)
 
@@ -142,15 +218,37 @@ class GameCard(QWidget):
 
     def set_focused(self, focused: bool):
         self._focused = focused
+        self._start_hover_anim()
         self.update()
 
     def enterEvent(self, event):
         super().enterEvent(event)
+        self._start_hover_anim()
         self.update()
 
     def leaveEvent(self, event):
         super().leaveEvent(event)
+        self._start_hover_anim()
         self.update()
+
+    def _start_hover_anim(self):
+        if not self._hover_anim.isActive():
+            self._hover_anim.start()
+
+    def _hover_tick(self):
+        dt = self._hover_anim.interval() / 1000.0
+        target = 1.0 if self._hover_wanted() else 0.0
+        if self._hprog < target:
+            self._hprog = min(target, self._hprog + dt / _HOVER_DURATION)
+        elif self._hprog > target:
+            self._hprog = max(target, self._hprog - dt / _HOVER_DURATION)
+        if self._hover_wanted():
+            self._hover_clock += dt
+        else:
+            self._hover_clock = 0.0
+        self.update()
+        if self._hprog == target and not self._hover_wanted():
+            self._hover_anim.stop()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
