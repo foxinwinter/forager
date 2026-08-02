@@ -189,10 +189,43 @@ def ensure_steamcmd() -> None:
 
 
 def _verify_symlinks(new_dir: Path) -> None:
-    """Fail fast if symlinks were flattened to 0-byte placeholders."""
+    """Fail fast if symlinks were flattened to 0-byte placeholders (steampipe).
+
+    steamcmd preserves symlinks; DepotDownloader flattens them. A flattened
+    download would bake 0-byte builtin DLLs into every prefix created from it,
+    so the default_pfx builtin DLL symlinks are checked in addition to a bin
+    launcher symlink.
+    """
     msidb = new_dir / "files" / "bin" / "msidb"
     if not msidb.is_symlink():
         raise RuntimeError("Proton download did not preserve symlinks")
+    kernel32 = (
+        new_dir / "files" / "share" / "default_pfx"
+        / "drive_c" / "windows" / "system32" / "kernel32.dll"
+    )
+    if not kernel32.is_symlink():
+        raise RuntimeError("Proton download flattened default_pfx symlinks")
+    try:
+        size = kernel32.stat().st_size
+    except OSError:
+        size = 0
+    if size == 0:
+        raise RuntimeError("Proton download has broken default_pfx DLLs")
+
+
+def _prefix_broken(prefix: Path) -> bool:
+    """True if the prefix has flattened 0-byte builtin DLLs (unusable)."""
+    for sub in ("system32", "syswow64"):
+        dll_dir = prefix / "drive_c" / "windows" / sub
+        if not dll_dir.is_dir():
+            continue
+        for dll in dll_dir.glob("*.dll"):
+            try:
+                if dll.stat().st_size == 0:
+                    return True
+            except OSError:
+                pass
+    return False
 
 
 def _restore_exec_bits(new_dir: Path) -> None:
@@ -284,10 +317,42 @@ def update_proton(report=None, on_progress=None, cancel_event=None) -> str | Non
     emit("Applying patches...")
     _restore_exec_bits(STAGING_DIR)
 
+    # The prefix is pinned inside the Proton install (STEAM_COMPAT_DATA_PATH
+    # points at <proton>/files, so the Wine prefix lives at files/pfx). Keep
+    # the prefix AND its compatdata markers across the swap — dropping the
+    # markers makes Proton's next setup_prefix crash on a missing
+    # tracked_files (creation_sync_guard exists, so copy_pfx is skipped).
+    _COMPAT_MARKERS = (
+        "tracked_files", "version", "config_info", "pfx.lock",
+        "proton-fex-config.json",
+    )
+    files_dir = proton_dir() / "files"
+
     saved_pfx = runtime_dir() / ".prefix-pfx"
-    pfx = proton_dir() / "files" / "pfx"
+    saved_markers = runtime_dir() / ".prefix-markers"
+    for stale in (saved_pfx, saved_markers):
+        if stale.exists():
+            shutil.rmtree(stale)
+    pfx = files_dir / "pfx"
+    if pfx.exists() and _prefix_broken(pfx):
+        # A flattened (0-byte DLL) prefix is unusable and never self-repairs:
+        # update_builtin_libs skips any builtin whose destination already
+        # exists. Drop it so Proton recreates a clean prefix from the new
+        # (verified) install's default_pfx.
+        emit("Discarding damaged prefix (flattened DLLs)")
+        shutil.rmtree(pfx)
+        for name in _COMPAT_MARKERS:
+            marker = files_dir / name
+            if marker.exists():
+                marker.unlink()
     if pfx.exists():
         pfx.rename(saved_pfx)
+
+    for name in _COMPAT_MARKERS:
+        marker = files_dir / name
+        if marker.exists():
+            saved_markers.mkdir(parents=True, exist_ok=True)
+            marker.rename(saved_markers / name)
 
     if BACKUP_DIR.exists():
         shutil.rmtree(BACKUP_DIR)
@@ -297,10 +362,14 @@ def update_proton(report=None, on_progress=None, cancel_event=None) -> str | Non
     if BACKUP_DIR.exists():
         shutil.rmtree(BACKUP_DIR)
 
+    new_files = proton_dir() / "files"
+    new_files.mkdir(parents=True, exist_ok=True)
     if saved_pfx.exists():
-        new_pfx = proton_dir() / "files" / "pfx"
-        new_pfx.parent.mkdir(parents=True, exist_ok=True)
-        saved_pfx.rename(new_pfx)
+        saved_pfx.rename(new_files / "pfx")
+    if saved_markers.exists():
+        for marker in sorted(saved_markers.iterdir()):
+            marker.rename(new_files / marker.name)
+        saved_markers.rmdir()
 
     version = proton_version()
     emit(f"Proton updated ({version})")
