@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 
 from forager.ui.theme import C
 from forager.ui.icons import load_icon
-from forager.utils.paths import games_dir
+from forager.core.paths import games_dir
 
 _SPEED_QSS = f"color: #b8bcbf; font-size: 11px; background: transparent;"
 _DIM_TEXT_QSS = "color: #b8bcbf; background: transparent;"

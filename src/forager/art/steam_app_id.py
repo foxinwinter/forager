@@ -13,7 +13,7 @@ import urllib.parse
 import urllib.request
 
 from forager.core.game import Game
-from forager.utils.paths import art_cache_dir
+from forager.core.paths import art_cache_dir
 
 STEAM_STORE_SEARCH = "https://store.steampowered.com/api/storesearch/?term={term}&l=english&cc=US"
 

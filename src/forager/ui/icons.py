@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import re
 import threading
-from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 
+from forager.core.paths import resources_dir
 from forager.ui.theme import C
 
-RESOURCE_DIR = Path(__file__).resolve().parent.parent / "resources" / "icons"
+RESOURCE_DIR = resources_dir() / "icons"
 
 _CURRENT_COLOR = re.compile(r'(stroke|fill)="currentColor"')
 

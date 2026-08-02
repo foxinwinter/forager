@@ -28,7 +28,7 @@ QPushButton:hover {{ background-color: {C.COLOR_3}; }}
 class AccountTab(SettingsTab):
     def __init__(self, parent=None):
         super().__init__(parent)
-        from forager.library import steam, steamgriddb
+        from forager.steam import account, sgdb
 
         self.setStyleSheet(f"background-color: {C.BG};")
         lay = QVBoxLayout(self)
@@ -110,7 +110,7 @@ class AccountTab(SettingsTab):
     # -- steam sign-in --------------------------------------------------
 
     def _update_steam_status(self):
-        from forager.library import steam
+        from forager.steam import account
 
         user = steam.get_username()
         if user:
@@ -138,7 +138,7 @@ class AccountTab(SettingsTab):
         dlg.open()
 
     def _on_steam_signout(self):
-        from forager.library import steam
+        from forager.steam import account
 
         steam.clear_credentials()
         steam.clear_session()
@@ -147,7 +147,7 @@ class AccountTab(SettingsTab):
     # -- SteamGridDB token ---------------------------------------------
 
     def _update_token_status(self):
-        from forager.library import steamgriddb
+        from forager.steam import sgdb
 
         if steamgriddb.get_api_key():
             self._token_status.setText("API token set (used for cover art).")
@@ -164,7 +164,7 @@ class AccountTab(SettingsTab):
         dlg.open()
 
     def _save_token(self, silent: bool = False):
-        from forager.library import steamgriddb
+        from forager.steam import sgdb
 
         token = self._token_edit.text().strip()
         try:

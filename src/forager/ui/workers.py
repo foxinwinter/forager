@@ -125,8 +125,8 @@ class HeroSignals(QObject):
 
 
 def _art_job(games: list[Game], signals: ArtSignals, stop_event: threading.Event):
-    from forager.services import art
-    from forager.library.icon_provider import load_icon_bytes
+    from forager.art import art
+    from forager.steam.icon_provider import load_icon_bytes
 
     for game in games:
         if stop_event.is_set():
@@ -142,7 +142,7 @@ def _art_job(games: list[Game], signals: ArtSignals, stop_event: threading.Event
 
 
 def _hero_job(game: Game, signals: HeroSignals, stop_event: threading.Event):
-    from forager.services import art
+    from forager.art import art
 
     if stop_event.is_set():
         return

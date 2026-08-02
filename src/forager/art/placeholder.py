@@ -15,11 +15,12 @@ from PySide6.QtGui import (
 )
 
 from forager.core.game import Game
-from forager.library.icon_provider import load_icon
-from forager.services.pixmap_utils import scale_crop
+from forager.core.paths import resources_dir
+from forager.steam.icon_provider import load_icon
+from forager.art.pixmap_utils import scale_crop
 
 _PLACEHOLDER_FONT_NAME = "VT323"
-_FONT_FILE = Path(__file__).resolve().parent.parent / "resources" / "fonts" / "VT323-Regular.ttf"
+_FONT_FILE = resources_dir() / "fonts" / "VT323-Regular.ttf"
 _PLACEHOLDER_FONT_FAMILY: str | None = None
 _PLACEHOLDER_SHADOW_CACHE: dict[int, QImage] = {}
 
@@ -163,7 +164,7 @@ def _local_icon_pixmap(game: Game) -> QPixmap | None:
 
 
 def _exe_icon_pixmap(path: Path) -> QPixmap | None:
-    from forager.utils.pe_icons import best_icon, find_exe_with_icon
+    from forager.art.pe_icons import best_icon, find_exe_with_icon
 
     exe = find_exe_with_icon(path)
     if exe is None:

@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt, QEvent, Signal
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGridLayout, QScrollArea
 
 from forager.core.game import Game
-from forager.services import art
+from forager.art import art
 from forager.ui.theme import C
 from forager.ui.widgets.game_card import GameCard
 

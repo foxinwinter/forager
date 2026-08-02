@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from forager.core.config import settings
-from forager.utils.paths import (
+from forager.core.paths import (
     proton_dir,
     proton_prefix_dir,
     rtp_source_dir,

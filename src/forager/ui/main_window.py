@@ -14,7 +14,7 @@ from forager.core.config import settings
 from forager.library.launcher import launch
 from forager.library.playtime import PlaytimeTracker
 from forager.core.controller import ControllerPoller
-from forager.services.pixmap_utils import bytes_to_pixmap
+from forager.art.pixmap_utils import bytes_to_pixmap
 from forager.ui.theme import PAGE_BG, PANEL_QSS
 from forager.ui.widgets.sidebar import Sidebar
 from forager.ui.widgets.titlebar import TitleBar

@@ -4,6 +4,18 @@ from pathlib import Path
 from forager.core.config import default_cache_dir, default_config_dir, settings
 
 
+def resources_dir() -> Path:
+    """Path to the packaged resources directory (icons, fonts).
+
+    Resolved from the installed package location, so it works identically
+    from a source checkout (``PYTHONPATH=src``) and from an installed wheel.
+    """
+    from importlib import resources
+
+    return Path(str(resources.files("forager") / "resources"))
+
+
+
 def cache_dir() -> Path:
     return default_cache_dir()
 

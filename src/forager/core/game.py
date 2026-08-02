@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
 
-from forager.utils.paths import games_dir
+from forager.core.paths import games_dir
 
 GENERIC_CONTAINERS = {
     "standalone", "series", "minecraft", "steam", "rpgmaker", "rpg",

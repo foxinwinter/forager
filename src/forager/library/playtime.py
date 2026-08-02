@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 
 from forager.core.game import Game
-from forager.utils.paths import playtime_file
+from forager.core.paths import playtime_file
 
 
 def game_key(game: Game) -> str:

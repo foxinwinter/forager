@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 
 from forager.core.game import Game
 from forager.library.playtime import PlaytimeStore, format_playtime, game_key
-from forager.services import art
+from forager.art import art
 from forager.ui.theme import C
 from forager.ui.widgets.game_card import GameCard
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 from forager.core.game import ENGINE_NAMES, Game, Source
-from forager.utils.paths import games_dir
+from forager.core.paths import games_dir
 
 # Steam app IDs that are tools/runtimes rather than games (never shown in
 # the library). Proton Experimental is the big one; the Linux runtime

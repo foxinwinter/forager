@@ -2,7 +2,7 @@
 
 Steam's own login page polls the auth session over a WebSocket that hangs in
 QtWebEngine, so the login happens here, natively, against Steam's
-``IAuthenticationService`` API (see ``forager.library.steam_auth``). The QR
+``IAuthenticationService`` API (see ``forager.steam.auth``). The QR
 code is rendered locally (white background, black modules, exactly like
 Steam's website) and the Steam Guard code entry reuses the same API.
 """
@@ -22,8 +22,8 @@ try:
 except Exception:
     _qrcode = None
 
-from forager.library import steam, steam_auth
-from forager.library.steam_auth import SteamAuthError, GUARD_EMAIL_CODE
+from forager.steam import account, auth
+from forager.steam.auth import SteamAuthError, GUARD_EMAIL_CODE
 from forager.ui.theme import C
 
 _QR_PIXEL_SIZE = 256
