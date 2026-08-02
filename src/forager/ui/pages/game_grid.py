@@ -14,7 +14,7 @@ from forager.services import art
 from forager.ui.theme import C
 from forager.ui.widgets.game_card import GameCard
 
-_GRID_MARGIN = 23
+_GRID_MARGIN = 8
 _GRID_MIN_GAP = 12
 _GRID_V_GAP = 16
 
@@ -48,7 +48,10 @@ class GameGrid(QWidget):
 
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
-        self._scroll.setStyleSheet(f"QScrollArea {{ background: {C.BG}; border: none; }}")
+        self._scroll.setStyleSheet(
+            "QScrollArea { background: transparent; border: none; }"
+            "QScrollArea > QWidget > QWidget { background: transparent; }"
+        )
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._scroll.viewport().installEventFilter(self)
 

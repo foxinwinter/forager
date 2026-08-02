@@ -50,7 +50,7 @@ class RecentPlayedRow(QWidget):
 
         title = QLabel("RECENTLY PLAYED")
         title.setStyleSheet(
-            f"color: {C.TEXT_DIM}; font-size: 11px; font-weight: 700;"
+            f"color: {C.BLUE}; font-size: 11px; font-weight: 800;"
             f"letter-spacing: 1px; background: transparent;"
         )
         v.addWidget(title)
@@ -66,12 +66,15 @@ class RecentPlayedRow(QWidget):
         self._scroll.setWidgetResizable(True)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        self._scroll.setStyleSheet(
+            "QScrollArea { background: transparent; border: none; }"
+            "QScrollArea > QWidget > QWidget { background: transparent; }"
+        )
 
         self._host = QWidget()
         self._host.setStyleSheet("background: transparent;")
         self._row = QHBoxLayout(self._host)
-        self._row.setContentsMargins(23, 0, 23, 0)
+        self._row.setContentsMargins(8, 0, 8, 0)
         self._row.setSpacing(12)
         self._row.addStretch(1)
         self._scroll.setWidget(self._host)

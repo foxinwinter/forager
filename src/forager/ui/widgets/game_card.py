@@ -75,7 +75,7 @@ class GameCard(QWidget):
             p.setPen(QPen(QColor(C.ACCENT_1), 2))
             p.drawRoundedRect(rect, _RADIUS, _RADIUS)
         elif self.underMouse():
-            p.setPen(QPen(QColor(255, 255, 255, 45), 1))
+            p.setPen(QPen(QColor(75, 137, 239, 150), 1))
             p.drawRoundedRect(rect, _RADIUS, _RADIUS)
 
     def _fallback_art(self) -> QPixmap | None:

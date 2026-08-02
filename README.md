@@ -6,6 +6,9 @@ A Steam-style game launcher for your local game library.
 
 - **Library view** — Steam-style grid of cover tiles with a searchable
   sidebar game list.
+- **SpaceTheme-inspired UI** — the dark, layered, rounded look is heavily
+  inspired by [SpaceTheme](https://github.com/SpaceTheme/Steam) (a Millennium
+  skin for the Steam client).
 - **Gamepad support** — navigate and launch with a controller (via `evdev`).
 - **Cover art** — pulls portrait grid art, headers, banners, and icons from
   local Steam files, the Steam CDN, and SteamGridDB (token stored in your

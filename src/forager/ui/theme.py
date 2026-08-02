@@ -29,6 +29,25 @@ class C:
     RADIUS = 8
 
 
+# Library page background: a very subtle vertical fade from a blue-tinted
+# near-black at the top down to pure --st-background, so the page reads as
+# layered instead of one flat fill (SpaceTheme keeps the base near-black but
+# stacks shelf surfaces on top of it).
+PAGE_BG = (
+    "qlineargradient(x1:0, y1:0, x2:0, y2:1, "
+    "stop:0 #15151b, stop:0.5 #0f0f14, stop:1 #0a0a0a)"
+)
+
+# Shelf/panel surface used for the library sections, matching SpaceTheme's
+# game shelves: rgb(var(--st-color-2)) with the theme border radius.
+PANEL_QSS = f"""
+QFrame#Panel {{
+    background-color: {C.COLOR_2};
+    border-radius: {C.RADIUS}px;
+}}
+"""
+
+
 TAB_QSS = f"""
 QPushButton {{
     background-color: {C.COLOR_3};

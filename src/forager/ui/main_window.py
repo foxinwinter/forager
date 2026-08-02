@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt, QThread, QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QMessageBox,
-    QStackedWidget, QApplication,
+    QStackedWidget, QApplication, QFrame,
 )
 
 from forager.core.game import Game
@@ -15,7 +15,7 @@ from forager.library.launcher import launch
 from forager.library.playtime import PlaytimeTracker
 from forager.core.controller import ControllerPoller
 from forager.services.pixmap_utils import bytes_to_pixmap
-from forager.ui.theme import C
+from forager.ui.theme import PAGE_BG, PANEL_QSS
 from forager.ui.widgets.sidebar import Sidebar
 from forager.ui.widgets.titlebar import TitleBar
 from forager.ui.widgets.recent import RecentPlayedRow
@@ -147,20 +147,33 @@ class MainWindow(QMainWindow):
         self._gamepage.back_requested.connect(self._show_home)
 
     def _build_home(self) -> QWidget:
-        page = QWidget()
-        page.setStyleSheet(f"background-color: {C.BG};")
+        page = QFrame()
+        page.setObjectName("HomePage")
+        page.setStyleSheet(f"QFrame#HomePage {{ background-color: {PAGE_BG}; }}")
         v = QVBoxLayout(page)
         v.setContentsMargins(24, 18, 24, 18)
-        v.setSpacing(12)
+        v.setSpacing(16)
 
+        recent_panel = QFrame()
+        recent_panel.setObjectName("Panel")
+        recent_panel.setStyleSheet(PANEL_QSS)
+        recent_layout = QVBoxLayout(recent_panel)
+        recent_layout.setContentsMargins(16, 14, 16, 14)
         self._recent = RecentPlayedRow(self._playtime.store)
         self._recent.game_clicked.connect(self._open_game)
-        v.addWidget(self._recent)
+        recent_layout.addWidget(self._recent)
+        v.addWidget(recent_panel)
 
+        grid_panel = QFrame()
+        grid_panel.setObjectName("Panel")
+        grid_panel.setStyleSheet(PANEL_QSS)
+        grid_layout = QVBoxLayout(grid_panel)
+        grid_layout.setContentsMargins(16, 14, 16, 16)
         self._grid = GameGrid(self._card_w, self._card_h)
         self._grid.card_clicked.connect(self._open_game)
         self._grid.card_activated.connect(self._launch_game)
-        v.addWidget(self._grid, stretch=1)
+        grid_layout.addWidget(self._grid, stretch=1)
+        v.addWidget(grid_panel, stretch=1)
 
         return page
 
