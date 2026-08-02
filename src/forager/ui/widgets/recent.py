@@ -131,7 +131,9 @@ class RecentPlayedRow(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(6)
 
-        card = GameCard(game, card_w=self._card_w, card_h=self._card_h)
+        card = GameCard(
+            game, card_w=self._card_w, card_h=self._card_h, fit_art=True
+        )
         card.clicked.connect(self.game_clicked)
         v.addWidget(card, alignment=Qt.AlignmentFlag.AlignHCenter)
 

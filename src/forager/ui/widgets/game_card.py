@@ -16,11 +16,19 @@ class GameCard(QWidget):
     clicked = Signal(object)
     activated = Signal(object)
 
-    def __init__(self, game: Game, parent=None, card_w: int = CARD_W, card_h: int = CARD_H):
+    def __init__(
+        self,
+        game: Game,
+        parent=None,
+        card_w: int = CARD_W,
+        card_h: int = CARD_H,
+        fit_art: bool = False,
+    ):
         super().__init__(parent)
         self.game = game
         self._focused = False
         self._art: QPixmap | None = None
+        self._fit_art = fit_art
 
         self.setFixedSize(card_w, card_h)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -46,7 +54,15 @@ class GameCard(QWidget):
 
         p.fillRect(rect, QColor(C.COLOR_3))
         if self._art is not None and not self._art.isNull():
-            p.drawPixmap(self.rect(), art.scale_crop(self._art, w, h))
+            if self._fit_art:
+                pix = art.scaled(self._art, w, h)
+                p.drawPixmap(
+                    (w - pix.width()) // 2,
+                    (h - pix.height()) // 2,
+                    pix,
+                )
+            else:
+                p.drawPixmap(self.rect(), art.scale_crop(self._art, w, h))
         else:
             self._paint_placeholder(p, w, h)
 
