@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 )
 
 from forager.core.config import settings
+from forager.ui.fonts import UI_FONT
 from forager.ui.theme import C, PAGE_BG
 from forager.ui.icons import load_icon as load_bundled_icon
 from forager.ui.dialogs.account_tab import AccountTab
@@ -162,7 +163,7 @@ class SettingsDialog(QDialog):
         lay.addWidget(icon)
 
         title = QLabel("Settings")
-        title.setFont(QFont("Roboto", 17, QFont.Weight.Bold))
+        title.setFont(QFont(UI_FONT, 17, QFont.Weight.Bold))
         title.setStyleSheet(f"color: {C.ACCENT_1}; background: transparent;")
         lay.addWidget(title)
 

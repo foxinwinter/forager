@@ -16,6 +16,7 @@ from PySide6.QtWidgets import QWidget
 
 from forager.core.game import Game
 from forager.artwork import pipeline as art
+from forager.ui.fonts import UI_FONT
 from forager.ui.theme import C
 
 CARD_W = 232
@@ -182,7 +183,7 @@ class GameCard(QWidget):
             )
 
         label = self.game.name.replace("/", " / ")
-        font = QFont("Roboto", max(9, w // 21), QFont.Weight.Medium)
+        font = QFont(UI_FONT, max(9, w // 21), QFont.Weight.Medium)
         p.setFont(font)
         fm = QFontMetrics(font)
         while fm.horizontalAdvance(label) > w - 24 and len(label) > 10:
@@ -202,7 +203,7 @@ class GameCard(QWidget):
         p.fillRect(QRectF(0, h - overlay_h, w, overlay_h), grad)
 
         label = self.game.name.replace("/", " / ")
-        font = QFont("Roboto", max(10, w // 19), QFont.Weight.DemiBold)
+        font = QFont(UI_FONT, max(10, w // 19), QFont.Weight.DemiBold)
         p.setFont(font)
         fm = QFontMetrics(font)
         while fm.horizontalAdvance(label) > w - 20 and len(label) > 10:

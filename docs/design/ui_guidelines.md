@@ -32,6 +32,7 @@ See [theming.md](theming.md) for the palette and QSS mechanics.
 
 ## Reading
 
-- Fonts: Roboto (system) for the UI; VT323 reserved for generated placeholder
-  artwork titles. See [typography.md](typography.md).
+- Fonts: Be Vietnam Pro (bundled, SpaceTheme default) for the UI; VT323
+  reserved for generated placeholder artwork titles. See
+  [typography.md](typography.md).
 - Never rely on colour alone — selected/hover states also change shape/weight.

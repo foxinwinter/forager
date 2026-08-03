@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout,
 )
 
+from forager.ui.fonts import UI_FONT
 from forager.ui.theme import C
 from forager.ui.icons import load_icon
 from forager.core.paths import games_dir
@@ -264,7 +265,7 @@ class DownloadsPage(QWidget):
         header = QHBoxLayout()
         header.setContentsMargins(12, 8, 12, 0)
         title = QLabel("Downloads")
-        title.setFont(QFont("Roboto", 20, QFont.Weight.Bold))
+        title.setFont(QFont(UI_FONT, 20, QFont.Weight.Bold))
         title.setStyleSheet(f"color: {C.TEXT}; background: transparent;")
         gear = QPushButton()
         gear.setIcon(load_icon("settings", C.TEXT_DIM))
@@ -302,7 +303,7 @@ class DownloadsPage(QWidget):
         queue.setContentsMargins(12, 8, 12, 0)
         queue.setSpacing(8)
         qheader = QLabel("Updates")
-        qheader.setFont(QFont("Roboto", 15, QFont.Weight.Bold))
+        qheader.setFont(QFont(UI_FONT, 15, QFont.Weight.Bold))
         qheader.setStyleSheet(f"color: {C.TEXT}; background: transparent;")
         queue.addWidget(qheader)
 

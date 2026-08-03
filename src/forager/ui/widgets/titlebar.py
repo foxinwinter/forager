@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QButtonGroup,
 )
 
+from forager.ui.fonts import UI_FONT
 from forager.ui.theme import C, NAV_TAB_QSS
 from forager.ui.icons import load_icon as load_bundled_icon
 
@@ -32,7 +33,7 @@ class TitleBar(QWidget):
 
         logo = QToolButton()
         logo.setText("forager")
-        logo.setFont(QFont("Roboto", 16, QFont.Weight.Bold))
+        logo.setFont(QFont(UI_FONT, 16, QFont.Weight.Bold))
         logo.setCursor(Qt.CursorShape.PointingHandCursor)
         logo.setToolTip("forager menu")
         logo.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)

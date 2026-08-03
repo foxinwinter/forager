@@ -18,9 +18,11 @@ python -m forager
    - sets application/organisation names (used by Qt settings and keyring);
    - calls `register_placeholder_font()` from `artwork/pipeline.py` to make the
      bundled VT323 font available to `QFontDatabase`;
+   - calls `register_ui_font()` (`ui/fonts.py`) to register the bundled
+     Be Vietnam Pro weights (SpaceTheme's default UI font);
    - calls `apply_theme()` (`ui/theme.py`) which switches to the Fusion style,
-     installs the Roboto default font, builds the palette and installs the
-     global stylesheet;
+     installs the Be Vietnam Pro default font, builds the palette and installs
+     the global stylesheet;
    - constructs and shows `MainWindow`.
 4. **`MainWindow`** (`ui/main_window.py`) builds the chrome: custom title bar,
    sidebar (with search), recent-played row, the page stack (library grid,

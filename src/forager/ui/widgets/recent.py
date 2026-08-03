@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 from forager.core.game import Game
 from forager.library.playtime import PlaytimeStore, format_playtime, game_key
 from forager.artwork import pipeline as art
+from forager.ui.fonts import UI_FONT
 from forager.ui.theme import C
 from forager.ui.widgets.game_card import GameCard
 
@@ -163,6 +164,6 @@ class RecentPlayedRow(QWidget):
         return {"frame": frame, "card": card, "game": game}
 
     def _elide(self, text: str) -> str:
-        font = QFont("Roboto", 12)
+        font = QFont(UI_FONT, 12)
         fm = QFontMetrics(font)
         return fm.elidedText(text, Qt.TextElideMode.ElideRight, self._card_w)

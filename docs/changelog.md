@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- UI font switched from Roboto to **Be Vietnam Pro** (SpaceTheme's default).
+  The OFL-licensed static weights (300/400/500/600/700/800) are bundled in
+  `assets/fonts/` and registered at startup by `ui/fonts.py`, so the theme now
+  matches without a network dependency.
+
 ## 0.2.0 — 2026-08-02
 
 - Major source reorganisation into a layered layout (`artwork/`, `providers/`,

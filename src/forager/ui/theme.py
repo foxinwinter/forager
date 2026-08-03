@@ -2,6 +2,8 @@ from __future__ import annotations
 from PySide6.QtGui import QColor, QPalette, QFont
 from PySide6.QtWidgets import QApplication
 
+from forager.ui.fonts import UI_FONT
+
 
 class C:
     """SpaceTheme palette (https://github.com/SpaceTheme/Steam)."""
@@ -92,7 +94,7 @@ def load() -> dict[str, str]:
 def apply(app: QApplication) -> None:
     app.setStyle("Fusion")
 
-    font = QFont("Roboto", 10)
+    font = QFont(UI_FONT, 10)
     app.setFont(font)
 
     p = QPalette()
@@ -134,7 +136,7 @@ def stylesheet() -> str:
     QMainWindow, QWidget {{
         background-color: {C.BG};
         color: {C.TEXT};
-        font-family: Roboto, "DejaVu Sans", sans-serif;
+        font-family: "Be Vietnam Pro", "DejaVu Sans", sans-serif;
     }}
     QWidget:disabled {{
         color: {C.TEXT_DIM};

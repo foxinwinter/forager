@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 
 from forager.core.game import Game
 from forager.artwork import pipeline as art
+from forager.ui.fonts import UI_FONT
 from forager.ui.widgets.banner import Banner
 from forager.ui.theme import C
 from forager.ui.icons import load_icon as load_bundled_icon
@@ -43,7 +44,7 @@ class GamePage(QWidget):
         v.addWidget(self._banner)
 
         self._title = QLabel("")
-        self._title.setFont(QFont("Roboto", 26, QFont.Weight.Bold))
+        self._title.setFont(QFont(UI_FONT, 26, QFont.Weight.Bold))
         self._title.setStyleSheet(f"color: {C.TEXT}; background: transparent;")
         self._title.setWordWrap(True)
         v.addWidget(self._title)

@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout,
 )
 
+from forager.ui.fonts import UI_FONT
 from forager.ui.theme import C, TAB_QSS
 
 _STORES = ("Steam", "Epic Games", "GOG", "itch.io")
@@ -26,7 +27,7 @@ class StorePage(QWidget):
         layout.setSpacing(12)
 
         header = QLabel("Store")
-        header.setFont(QFont("Roboto", 22, QFont.Weight.Bold))
+        header.setFont(QFont(UI_FONT, 22, QFont.Weight.Bold))
         header.setStyleSheet(f"color: {C.TEXT}; background: transparent;")
         layout.addWidget(header)
 

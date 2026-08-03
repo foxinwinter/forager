@@ -23,7 +23,8 @@ Plus `PAGE_BG` (the subtle vertical gradient behind pages), `PANEL_QSS`,
 `ui/theme.py:apply(app)` runs once at startup (`app.py`):
 
 1. `app.setStyle("Fusion")` — the platform style base.
-2. Install the Roboto font.
+2. Register the bundled Be Vietnam Pro weights (`ui/fonts.py`) and install it
+   as the application font.
 3. Build a `QPalette` from the `C` palette (Window/Base/Text/Highlight/…).
 4. Install the global stylesheet (`stylesheet()`): backgrounds, QPushButton,
    QLineEdit, scrollbars, menus, tooltips, dialogs.
