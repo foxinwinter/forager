@@ -43,4 +43,5 @@ for how UI code is exercised without a display.
 - Concise, imperative summaries (e.g. `feat: …`, `fix: …`, `chore: …`).
 - A new commit per logical change; no sweeping unrelated edits in one commit.
 - Both the authored and the mirrored checkout are committed together with the
-  same message (see the project maintainer rules in `../.agents/summary.md`).
+  same message (maintainer rule — the project uses two byte-identical
+  checkouts with separate git repos, committed with the same message).

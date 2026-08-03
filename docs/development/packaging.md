@@ -32,6 +32,7 @@ Sanity-check the wheel's contents include `assets/icons/*.svg`,
 ## What shipping a change touches
 
 - Source + tests, both the authored and the mirrored checkout, committed
-  together with the same message (maintainer rule — see
-  `../.agents/summary.md`).
+  together with the same message (maintainer rule — the project uses two
+  byte-identical checkouts with separate git repos, committed with the same
+  message).
 - Docs under `docs/` whenever layout or behaviour changes.
