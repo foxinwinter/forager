@@ -97,12 +97,12 @@ class SteamAuthWorker(QThread):
 
     def _run_flow(self):
         if self._method == "qr":
-            session = steam_auth.start_qr_session()
+            session = auth.start_qr_session()
         else:
             if not self._username or not self._password:
                 self.done.emit(False, "Enter your Steam account name and password.")
                 return
-            session = steam_auth.start_credentials_session(self._username, self._password)
+            session = auth.start_credentials_session(self._username, self._password)
 
         if self._method == "qr" and session.challenge_url:
             self.qr_ready.emit(session.challenge_url)
@@ -112,24 +112,24 @@ class SteamAuthWorker(QThread):
 
         steamid = (
             result["steamid"]
-            or steam_auth.steamid_from_refresh_token(result["refresh_token"])
+            or auth.steamid_from_refresh_token(result["refresh_token"])
         )
-        login_secure = steam_auth.finalize_login(result["refresh_token"], steamid)
-        steamid = steamid or steam.steamid_from_cookie(login_secure)
+        login_secure = auth.finalize_login(result["refresh_token"], steamid)
+        steamid = steamid or account.steamid_from_cookie(login_secure)
 
-        account = result["account_name"]
-        if not account and steamid:
-            account = steam.account_name_from_steamid(steamid)
-        account = (account or self._username or steamid or "").strip() or steamid or ""
+        account_name = result["account_name"]
+        if not account_name and steamid:
+            account_name = account.account_name_from_steamid(steamid)
+        account_name = (account_name or self._username or steamid or "").strip() or steamid or ""
 
-        steam.set_steam_session(
-            account,
+        account.set_steam_session(
+            account_name,
             method=self._method,
             password=self._password if self._method == "password" else None,
             steamid=steamid,
             login_secure=login_secure,
         )
-        self.done.emit(True, account)
+        self.done.emit(True, account_name)
 
     def _handle_confirmations(self, session):
         if session.code_types:
@@ -157,17 +157,17 @@ class SteamAuthWorker(QThread):
             code = self._drain_code()
             if code is not None:
                 code_type = code_types[0] if code_types else GUARD_EMAIL_CODE
-                steam_auth.update_session_with_guard_code(client_id, code, code_type, steamid)
+                auth.update_session_with_guard_code(client_id, code, code_type, steamid)
                 code_pending = True
                 code_attempts = 0
                 self.status.emit("Checking your code…")
 
-            result = steam_auth.poll_session(client_id, request_id)
+            result = auth.poll_session(client_id, request_id)
             if result.expired:
                 raise SteamAuthError("That sign-in link expired — start again or refresh the code.")
             if result.authorized:
                 return {
-                    "steamid": steamid or steam_auth.steamid_from_refresh_token(result.refresh_token),
+                    "steamid": steamid or auth.steamid_from_refresh_token(result.refresh_token),
                     "account_name": result.account_name,
                     "refresh_token": result.refresh_token,
                 }
