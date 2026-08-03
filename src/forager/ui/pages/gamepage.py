@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 )
 
 from forager.core.game import Game
-from forager.art import art
+from forager.artwork import pipeline as art
 from forager.ui.widgets.banner import Banner
 from forager.ui.theme import C
 from forager.ui.icons import load_icon as load_bundled_icon

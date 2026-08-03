@@ -11,20 +11,20 @@ import threading
 import urllib.request
 from pathlib import Path
 
-from forager.library.proton import (
+from forager.compatibility.proton import (
     PROTON_APPID,
     PROTON_DEPOTS,
     DEPOTDL_DIR,
     depotdownloader_bin,
     ensure_depotdownloader,
 )
+from forager.core.constants import KEYRING_SERVICE
 
 try:
     import keyring as _keyring
 except Exception:
     _keyring = None
 
-KEYRING_SERVICE = "forager"
 KEYRING_USERNAME_KEY = "steam_username"
 KEYRING_PASSWORD_KEY = "steam_password"
 KEYRING_LOGIN_METHOD_KEY = "steam_login_method"

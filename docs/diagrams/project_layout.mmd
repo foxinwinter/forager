@@ -1,0 +1,35 @@
+graph LR
+    MAIN["app.py / main.py / __main__.py"]
+    CORE["core/ (config, paths, game, controller, constants)"]
+    UI["ui/"]
+    LIB["library/ (scanner, launcher, playtime, metadata)"]
+    ART["artwork/ (pipeline, placeholder, pixmap_utils, pe_icons, cache)"]
+    PROV["providers/ (steam + epic/gog/torrent)"]
+    SVC["services/ (steamgriddb, icon_provider)"]
+    COMP["compatibility/ (proton)"]
+    UPD["updates/ (tool_updates)"]
+    UTIL["utils/"]
+    ASST["assets/ (fonts, icons)"]
+
+    MAIN --> CORE
+    MAIN --> UI
+    UI --> CORE
+    UI --> LIB
+    UI --> ART
+    UI --> PROV
+    UI --> SVC
+    UI --> COMP
+    UI --> UPD
+    LIB --> CORE
+    ART --> CORE
+    ART --> PROV
+    ART --> SVC
+    ART --> ASST
+    PROV --> COMP
+    PROV --> CORE
+    SVC --> CORE
+    COMP --> CORE
+    COMP --> UTIL
+    UPD --> COMP
+    CORE --> UTIL
+    ART --> UTIL

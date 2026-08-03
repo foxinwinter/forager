@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from forager.core.config import settings
-from forager.library import proton
+from forager.compatibility import proton
 from forager.ui.icons import load_icon
 from forager.ui.theme import C
 

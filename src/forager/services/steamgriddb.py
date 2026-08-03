@@ -10,6 +10,8 @@ from PIL import Image
 from PySide6.QtCore import QByteArray, Qt
 from PySide6.QtGui import QPixmap, QImage
 
+from forager.core.constants import KEYRING_SERVICE
+
 try:
     import keyring as _keyring
 except Exception:
@@ -18,7 +20,6 @@ except Exception:
 BASE = "https://www.steamgriddb.com/api/v2"
 ICON_SIZE = 48
 
-KEYRING_SERVICE = "forager"
 KEYRING_USER = "steamgriddb"
 
 

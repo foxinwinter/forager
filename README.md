@@ -26,6 +26,11 @@ A Steam-style game launcher for your local game library.
 See [docs/roadmap.md](docs/roadmap.md) for the plan towards `v1.0.0` (full Steam library,
 Steam downloads, store webview, torrenting, Steam achievements, Epic Games, GOG).
 
+## Documentation
+
+Architecture deep-dives, development guides, design notes and API references
+live under [`docs/`](docs/README.md).
+
 ## Layout
 
 Your game library folder is expected to look like:
@@ -125,8 +130,8 @@ Environment overrides:
 AGPL-3.0
 
 Bundled third-party assets carry their own licenses (included in the package
-under `forager/resources/`): the UI icons are from
+under `forager/assets/`): the UI icons are from
 [Iconoir](https://iconoir.com) (MIT, © 2021 Luca Burgio,
-`resources/icons/ICONOIR-LICENSE.txt`) and the placeholder-art font is
+`assets/icons/ICONOIR-LICENSE.txt`) and the placeholder-art font is
 [VT323](https://github.com/google/fonts/tree/main/ofl/vt323) (SIL OFL 1.1,
-`resources/fonts/OFL.txt`).
+`assets/fonts/OFL.txt`).

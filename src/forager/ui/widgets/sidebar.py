@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 )
 
 from forager.core.game import Game
-from forager.steam.icon_provider import load_icon
+from forager.services.icon_provider import load_icon
 from forager.ui.theme import C
 from forager.ui.icons import load_icon as load_bundled_icon
 from forager.ui.pages.downloads import DownloadBox

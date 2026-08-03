@@ -44,7 +44,7 @@ def _launch_standalone(game: Game) -> subprocess.Popen | None:
     if not exe:
         return None
     if exe.suffix == ".exe":
-        from forager.library import proton
+        from forager.compatibility import proton
 
         return proton.launch_exe(game.path, exe)
     return subprocess.Popen([str(exe)], cwd=game.path)

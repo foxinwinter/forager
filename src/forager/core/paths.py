@@ -1,41 +1,20 @@
 from __future__ import annotations
 from pathlib import Path
 
-from forager.core.config import default_cache_dir, default_config_dir, settings
+from forager.core.config import default_config_dir, settings
+from forager.core.constants import ASSETS_DIRNAME
 
 
 def resources_dir() -> Path:
-    """Path to the packaged resources directory (icons, fonts).
+    """Path to the packaged assets directory (icons, fonts).
 
     Resolved from the installed package location, so it works identically
     from a source checkout (``PYTHONPATH=src``) and from an installed wheel.
     """
     from importlib import resources
 
-    return Path(str(resources.files("forager") / "resources"))
+    return Path(str(resources.files("forager") / ASSETS_DIRNAME))
 
-
-
-def cache_dir() -> Path:
-    return default_cache_dir()
-
-
-def art_cache_dir() -> Path:
-    p = cache_dir() / "art"
-    p.mkdir(parents=True, exist_ok=True)
-    return p
-
-
-def icon_cache_dir() -> Path:
-    p = cache_dir() / "icons"
-    p.mkdir(parents=True, exist_ok=True)
-    return p
-
-
-def banner_cache_dir() -> Path:
-    p = cache_dir() / "banners"
-    p.mkdir(parents=True, exist_ok=True)
-    return p
 
 
 def games_dir() -> Path:

@@ -15,7 +15,7 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from forager.library.proton import (
+from forager.compatibility.proton import (
     DEPOTDL_DIR,
     depotdl_url,
     depotdownloader_bin,

@@ -1,0 +1,13 @@
+flowchart TD
+    A["python -m forager / forager (console script)"] --> B["__main__.py"]
+    B --> C["main.py: main()"]
+    C --> D["app.py: ForagerApp"]
+    D --> E["register_placeholder_font()  (VT323)"]
+    E --> F["apply_theme(self)  (Fusion + palette + QSS)"]
+    F --> G["MainWindow()"]
+    G --> H["TitleBar / Sidebar / RecentRow / page stack"]
+    G --> I["start ScanWorker (QThread)"]
+    I --> J["library/scanner.py scan_all()"]
+    J --> K["done.emit(games)"]
+    K --> L["GameGrid + RecentPlayedRow populated"]
+    G --> M["show()"]

@@ -2,7 +2,7 @@ from __future__ import annotations
 import sys
 from PySide6.QtWidgets import QApplication
 from forager.ui.theme import apply as apply_theme
-from forager.art.art import register_placeholder_font
+from forager.artwork.pipeline import register_placeholder_font
 from forager.ui.main_window import MainWindow
 
 

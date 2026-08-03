@@ -1,0 +1,25 @@
+sequenceDiagram
+    participant UI as GamePage / MainWindow
+    participant L as library/launcher.py
+    participant P as compatibility/proton.py
+    participant PT as library/playtime.py
+    participant S as Steam / OS
+
+    UI->>L: launch(game)
+    alt Source.STEAM
+        L->>S: steam://rungameid/<app_id>
+        L->>PT: stamp last_played
+    else Source.MINECRAFT
+        L->>S: run instance launcher
+        L->>PT: start session
+    else Source.STANDALONE (.exe)
+        L->>P: launch_exe(game_dir, exe)
+        P->>S: wine/proton run
+        L->>PT: start session
+    else Source.STANDALONE (native)
+        L->>S: spawn executable (cwd=game dir)
+        L->>PT: start session
+    end
+    PT-->>L: Popen (or None)
+    L-->>UI: return
+    Note over PT: session accumulates playtime while child alive

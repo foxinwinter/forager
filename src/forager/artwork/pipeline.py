@@ -11,22 +11,23 @@ from pathlib import Path
 from PySide6.QtGui import QPixmap
 
 from forager.core.game import Game, Source
-from forager.steam.icon_provider import load_icon
-from forager.steam.sgdb import (
+from forager.services.icon_provider import load_icon
+from forager.services.steamgriddb import (
     fetch_header_bytes_for_steam,
     fetch_banner_bytes_for_steam,
     fetch_grid_bytes_for_steam, fetch_grid_bytes_for_game,
     fetch_header_bytes_for_game,
     fetch_banner_bytes_for_game,
 )
-from forager.art.pixmap_utils import bytes_to_pixmap, scale_crop, scaled
-from forager.art.placeholder import (
+from forager.artwork.pixmap_utils import bytes_to_pixmap, scale_crop, scaled
+from forager.artwork.placeholder import (
     placeholder_card,
     placeholder_grid,
     register_placeholder_font,
 )
-from forager.art.steam_app_id import steam_app_id
-from forager.core.paths import art_cache_dir, banner_cache_dir, steam_appcache_dir
+from forager.providers.steam.appid import steam_app_id
+from forager.artwork.cache import art_cache_dir, banner_cache_dir
+from forager.core.paths import steam_appcache_dir
 
 STEAM_CACHE = steam_appcache_dir()
 ART_CACHE = art_cache_dir()

@@ -15,7 +15,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QWidget
 
 from forager.core.game import Game
-from forager.art import art
+from forager.artwork import pipeline as art
 from forager.ui.theme import C
 
 CARD_W = 232

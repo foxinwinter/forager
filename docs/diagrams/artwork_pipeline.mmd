@@ -1,0 +1,19 @@
+flowchart TD
+    S["Game (game.app_id)"] --> A{"app_id known?"}
+    A -- no --> APPID["providers/steam/appid.py steam_app_id()"]
+    APPID --> CACHEA["art/steam_app_ids.json cache"]
+    A -- yes --> R["resolution order"]
+    APPID --> R
+    R --> L1{"Steam appcache art?"}
+    L1 -- yes --> DONE["QPixmap / bytes"]
+    L1 -- no --> L2{"on-disk art cache?"}
+    L2 -- yes --> DONE
+    L2 -- no --> L3{"Steam CDN (app_id)?"}
+    L3 -- yes --> SAVEA["write art cache"] --> DONE
+    L3 -- no --> L4{"SteamGridDB by app id?"}
+    L4 -- yes --> SAVEA
+    L4 -- no --> L5{"SteamGridDB by search?"}
+    L5 -- yes --> SAVEA
+    L5 -- no --> PH["artwork/placeholder.py (VT323)"]
+    PH --> DONE
+    DONE --> UI["GameCard / GamePage / workers"]

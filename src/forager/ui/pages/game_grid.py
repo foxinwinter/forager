@@ -10,7 +10,8 @@ from PySide6.QtCore import Qt, QEvent, Signal
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGridLayout, QScrollArea
 
 from forager.core.game import Game
-from forager.art import art
+from forager.artwork import pipeline as art
+from forager.library.metadata import filter_games, sort_key
 from forager.ui.theme import C
 from forager.ui.widgets.game_card import GameCard
 
@@ -134,13 +135,7 @@ class GameGrid(QWidget):
     # -- internals ------------------------------------------------------
 
     def _filtered_games(self) -> list[Game]:
-        out = []
-        for g in self._games:
-            if self._search_text and self._search_text not in g.name.lower():
-                continue
-            out.append(g)
-        out.sort(key=lambda g: (g.sort_key or g.name).lower())
-        return out
+        return sorted(filter_games(self._games, self._search_text), key=sort_key)
 
     def _rebuild_cards(self):
         for card in self._cards:

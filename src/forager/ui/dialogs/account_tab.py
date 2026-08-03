@@ -28,7 +28,8 @@ QPushButton:hover {{ background-color: {C.COLOR_3}; }}
 class AccountTab(SettingsTab):
     def __init__(self, parent=None):
         super().__init__(parent)
-        from forager.steam import account, sgdb
+        from forager.providers.steam import account
+        from forager.services import steamgriddb as sgdb
 
         self._account = account
         self._sgdb = sgdb

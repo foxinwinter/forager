@@ -31,7 +31,7 @@ class ProtonUpdateWorker(QThread):
         self._cancel = cancel_event
 
     def run(self):
-        from forager.library.proton import update_proton, DownloadCancelled
+        from forager.compatibility.proton import update_proton, DownloadCancelled
 
         try:
             version = update_proton(
@@ -52,7 +52,7 @@ class TestDownloadWorker(QThread):
     done = Signal(bool, str)
 
     def run(self):
-        from forager.library.proton import DownloadProgress
+        from forager.compatibility.proton import DownloadProgress
 
         total = 360_000_000
         speed = 30_000_000
@@ -86,7 +86,7 @@ class ToolUpdateSignals(QObject):
 
 
 def _tool_update_check_job(signals: ToolUpdateSignals, stop_event: threading.Event):
-    from forager.library.tool_updates import check_tool_updates
+    from forager.updates.tool_updates import check_tool_updates
 
     if stop_event.is_set():
         return
@@ -102,7 +102,7 @@ class ToolUpdateWorker(QThread):
     done = Signal(bool, str)
 
     def run(self):
-        from forager.library.tool_updates import update_tool_updates
+        from forager.updates.tool_updates import update_tool_updates
 
         try:
             updated = update_tool_updates()
@@ -125,8 +125,8 @@ class HeroSignals(QObject):
 
 
 def _art_job(games: list[Game], signals: ArtSignals, stop_event: threading.Event):
-    from forager.art import art
-    from forager.steam.icon_provider import load_icon_bytes
+    from forager.artwork import pipeline as art
+    from forager.services.icon_provider import load_icon_bytes
 
     for game in games:
         if stop_event.is_set():
@@ -142,7 +142,7 @@ def _art_job(games: list[Game], signals: ArtSignals, stop_event: threading.Event
 
 
 def _hero_job(game: Game, signals: HeroSignals, stop_event: threading.Event):
-    from forager.art import art
+    from forager.artwork import pipeline as art
 
     if stop_event.is_set():
         return
